@@ -1,6 +1,4 @@
 # ALMA-Disk-Code
-A collection of python utilities for analyzing ALMA data
-
 
 
 Here are a collection of utilities, and notes, that I have put together for analyzing ALMA data, primarily of primordial/debris disks. These include:

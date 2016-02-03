@@ -1,0 +1,7 @@
+*.log
+*.dvi
+*.aux
+*.ps
+*.tex
+*.tex~
+*.eps
