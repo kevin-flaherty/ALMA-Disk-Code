@@ -1,6 +1,6 @@
 
 
-def quick_disk(file,size=10.,vsys=None,input_model=None,PA=312,incl=48,niter=5,mstar=2.0,distance=122):
+def quick_disk(file,size=10.,vsys=None,input_model=None,PA=312,incl=48,niter=5,mstar=2.0,distance=122,return_spectrum=False):
     ''' Based on Scoville et al. 1983, this code is a quick estimate of the spatial distribution of the flux emitted by a flat rotating disk, based on the ratio of modeled intensity to the observed image plane intensity. By including velocity information it can pull out more detailed structure than simple visual inspection.
 
     Any results should be taken with a small grain of salt since this code does not do the full radiative transfer calculation and does not fit to the visibilities. The results will be distorted by the beam, which is assumed to be circular even though it could be highly elliptical, and any match to the image plane will be distorted by cleaning artifacts in the data. Also, the results derived by this code have not been rigorously tested against more detailed radiative transfer models. Also, it may be missing small structures since it relies on the cleaned map than the full visibility data set. It is useful as a first pass through a data set to determine if you need to model e.g. a rising/falling surface density profile, or multiple narrow rings vs a single broad ring. 
@@ -33,6 +33,9 @@ def quick_disk(file,size=10.,vsys=None,input_model=None,PA=312,incl=48,niter=5,m
 
     :param distance:
     Distance to the disk, in units of parsecs
+
+    :param return_spectrum:
+    If set to True then the code returns the spectrum rather than the model emissivities. Useful for comparing to the data. Both the velocities of each channel, plus the spectrum, are returned [e.g. velo,spec = quick_disk('myfile.fits')]
 
 
 '''
@@ -199,7 +202,16 @@ def quick_disk(file,size=10.,vsys=None,input_model=None,PA=312,incl=48,niter=5,m
     plt.xlabel('Deprojected Radius (")')
     plt.legend(('Intensity','Surface Density'),loc='upper right',frameon=False)
     
-
+    if return_spectrum:
+        ram,dem = np.meshgrid(ra,dec)
+        sigmaj = 3600*hdr['bmaj']/(2*np.sqrt(2*np.log(2)))
+        sigmin = 3600*hdr['bmin']/(2*np.sqrt(2*np.log(2)))
+        area = np.exp(-(ram**2/(2*sigmaj**2)+dem**2/(2*sigmin**2))).sum()
+        im_dec = intensity.sum(axis=2)/area
+        spec = im_dec.sum(axis=1)
+        return velo,spec
+    else:
+        return model
 
 def quick_disk_cont(file,size=10.,PA=312.,incl=48.,niter=5,gas_column=False,line='co32',tgas=25.,distance=122.):
     ''' Based on Scoville et al. 1983, this code is a quick estimate of the spatial distribution of the flux emitted by a flat disk. This is useful for determining the spatial distribution of the flux (e.g. rings vs continous disk). More detailed radiative transfer codes are needed to pull out temperature, or if the velocity profile is not given by a simple flat disk. As compared to quick_disk, this code does not model the velocity profile, and is useful for modeling continuum emission or moment 0 maps
