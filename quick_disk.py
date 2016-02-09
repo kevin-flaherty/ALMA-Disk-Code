@@ -1,4 +1,4 @@
-
+#calculate chi-squared of best fit...
 
 def quick_disk(file,size=10.,vsys=None,input_model=None,PA=312,incl=48,niter=5,mstar=2.0,distance=122,return_spectrum=False):
     ''' Based on Scoville et al. 1983, this code is a quick estimate of the spatial distribution of the flux emitted by a flat rotating disk, based on the ratio of modeled intensity to the observed image plane intensity. By including velocity information it can pull out more detailed structure than simple visual inspection.
@@ -91,9 +91,10 @@ def quick_disk(file,size=10.,vsys=None,input_model=None,PA=312,incl=48,niter=5,m
     # initial model
     #intrinsic model
     ntheta = 100
-    nr = (float(size)/2*np.sqrt(2.)/(sigma/5.)).astype(int)
-    radius = np.linspace(0.,float(size)/2*np.sqrt(2.),nr)
-    #radius = np.logspace(-3,np.log10(size/2*np.sqrt(2.)),nr)
+#    nr = (float(size)/2*np.sqrt(2.)/(sigma/5.)).astype(int)
+    nr = (float(size)/2/(sigma/10.)).astype(int)
+    #radius = np.linspace(0.,float(size)/2*np.sqrt(2.),nr)
+    radius = np.linspace(0.,float(size)/2.,nr)
     dr = radius[1]-radius[0]#radius-np.roll(radius,1)
     #dr[0] = 0.
     theta = np.linspace(0,2*np.pi,ntheta,endpoint=False)
@@ -128,6 +129,10 @@ def quick_disk(file,size=10.,vsys=None,input_model=None,PA=312,incl=48,niter=5,m
                 Ps = 1/(2*np.pi*sigma**2)*np.exp(-((x[ix,iy]-xsi)**2+(y[ix,iy]-eta)**2)/(2*sigma**2))
                 Pi = Ps*Pv*dr*dtheta#*dv*np.sqrt(2*np.pi)
                 intensity[iv,ix,iy] = (radiusm*modelm*Pi).sum()
+
+    #Calculate chi-squared
+    print 'chi-squared: {:0.3f}'.format(((intensity-data)**2/noise**2).sum()/(xnpix*ynpix-1))
+
             
 
     for j in range(niter):
@@ -135,14 +140,20 @@ def quick_disk(file,size=10.,vsys=None,input_model=None,PA=312,incl=48,niter=5,m
         for ir in range(1,nr):
             num,denom=0,0
             for iv in range(vmin,vmax):
-                for itheta in range(ntheta):
-                    Psa = np.exp(-((x-xsi[itheta,ir])**2+(y-eta[itheta,ir])**2)/(2*sigma**2))
-                    Pva = .5*(np.abs(velo[iv]-vmodel[itheta,ir])<1*dv/2.)+.25*((np.abs(velo[iv]-vmodel[itheta,ir])>1*dv/2.) & (np.abs(velo[iv]-vmodel[itheta,ir])<3*dv/2.))
+                w = data[iv,:,:]>3*noise
+                if w.sum()>0:
+                    for itheta in range(ntheta):
+                        Psa = np.exp(-((x-xsi[itheta,ir])**2+(y-eta[itheta,ir])**2)/(2*sigma**2))
+                        Pva = .5*(np.abs(velo[iv]-vmodel[itheta,ir])<1*dv/2.)+.25*((np.abs(velo[iv]-vmodel[itheta,ir])>1*dv/2.) & (np.abs(velo[iv]-vmodel[itheta,ir])<3*dv/2.))
                     #Pva = np.exp(-(velo[iv]-vmodel[itheta,ir])**2/(2*dvt**2))
-                    num += ((data[iv,:,:]/intensity[iv,:,:])*Psa*Pva).sum()
-                    denom += (Psa*Pva).sum()
+                        if Pva > 0:
+                            num += ((data[iv,:,:][w]/intensity[iv,:,:][w])*Psa[w]*Pva).sum()
+                            denom += (Psa[w]*Pva).sum()
+                else:
+                    num+=0
+                    denom+=0
             model[ir] = model[ir]*num/denom
-
+            
         model[model<0] = 0.
         model[0] = 0.
         modelm = np.outer(np.ones(ntheta),model)
@@ -156,6 +167,9 @@ def quick_disk(file,size=10.,vsys=None,input_model=None,PA=312,incl=48,niter=5,m
                     Ps = 1/(2*np.pi*sigma**2)*np.exp(-((x[ix,iy]-xsi)**2+(y[ix,iy]-eta)**2)/(2*sigma**2))
                     Pi = Ps*Pv*dr*dtheta
                     intensity[iv,ix,iy] = (radiusm*modelm*Pi).sum()
+
+        #Calculate chi-squared
+        print 'chi-squared: {:0.3f}'.format(((intensity-data)**2/noise**2).sum()/(xnpix*ynpix-1))
 
     i = 1
     plt.figure()
@@ -282,9 +296,10 @@ def quick_disk_cont(file,size=10.,PA=312.,incl=48.,niter=5,gas_column=False,line
     # initial model
     #intrinsic model
     ntheta = 100
-    nr = (float(size)/2*np.sqrt(2.)/(sigma/5.)).astype(int)
-    radius = np.linspace(0.,float(size)/2*np.sqrt(2.),nr)
-    #radius = np.logspace(-3,np.log10(size/2*np.sqrt(2.)),nr)
+    #nr = (float(size)/2*np.sqrt(2.)/(sigma/5.)).astype(int)
+    #radius = np.linspace(0.,float(size)/2*np.sqrt(2.),nr)
+    nr = (float(size)/2/(sigma/10.)).astype(int)
+    radius = np.linspace(0.,float(size)/2.,nr)
     dr = radius[1]-radius[0]#radius-np.roll(radius,1)
     #dr[0] = 0.
     theta = np.linspace(0,2*np.pi,ntheta,endpoint=False)
@@ -307,6 +322,10 @@ def quick_disk_cont(file,size=10.,PA=312.,incl=48.,niter=5,gas_column=False,line
         for iy in range(ynpix):
             Ps = 1/(2*np.pi*sigma**2)*np.exp(-((x[ix,iy]-xsi)**2+(y[ix,iy]-eta)**2)/(2*sigma**2))
             intensity[ix,iy] = (radiusm*modelm*Ps*dr).sum()*dtheta
+
+    #Calculate chi-squared
+    print 'chi-squared: {:0.3f}'.format(((intensity-data)**2/noise**2).sum()/(xnpix*ynpix-1))
+
             
     for j in range(niter):
         print 'Adjust model {:1.0f}...'.format(j+1)
@@ -326,6 +345,8 @@ def quick_disk_cont(file,size=10.,PA=312.,incl=48.,niter=5,gas_column=False,line
                 Ps = 1/(2*np.pi*sigma**2)*np.exp(-((x[ix,iy]-xsi)**2+(y[ix,iy]-eta)**2)/(2*sigma**2))
                 intensity[ix,iy] = (radiusm*modelm*Ps*dr).sum()*dtheta
 
+        #Calculate chi-squared
+        print 'chi-squared: {:0.3f}'.format(((intensity-data)**2/noise**2).sum()/(xnpix*ynpix-1))
 
     if gas_column:
         if line.lower() == 'co32':
