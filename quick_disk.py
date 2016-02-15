@@ -1,6 +1,6 @@
 #calculate chi-squared of best fit...
 
-def quick_disk(file,size=10.,vsys=None,input_model=None,PA=312,incl=48,niter=5,mstar=2.0,distance=122,return_spectrum=False):
+def quick_disk(file,size=10.,vsys=None,input_model=None,PA=312,incl=48,niter=5,mstar=2.0,distance=122,return_spectrum=False,offs=[0.,0.]):
     ''' Based on Scoville et al. 1983, this code is a quick estimate of the spatial distribution of the flux emitted by a flat rotating disk, based on the ratio of modeled intensity to the observed image plane intensity. By including velocity information it can pull out more detailed structure than simple visual inspection.
 
     Any results should be taken with a small grain of salt since this code does not do the full radiative transfer calculation and does not fit to the visibilities. The results will be distorted by the beam, which is assumed to be circular even though it could be highly elliptical, and any match to the image plane will be distorted by cleaning artifacts in the data. Also, the results derived by this code have not been rigorously tested against more detailed radiative transfer models. Also, it may be missing small structures since it relies on the cleaned map than the full visibility data set. It is useful as a first pass through a data set to determine if you need to model e.g. a rising/falling surface density profile, or multiple narrow rings vs a single broad ring. 
@@ -56,8 +56,8 @@ def quick_disk(file,size=10.,vsys=None,input_model=None,PA=312,incl=48,niter=5,m
     ide = np.abs(dec) < size/2.
     data = data[:,:,ira]
     data = data[:,ide,:]
-    ra = ra[ira]
-    dec = dec[ide]
+    ra = ra[ira]-offs[0]
+    dec = dec[ide]-offs[1]
     dra = np.abs(3600*hdr['cdelt1'])
     ddec = np.abs(3600*hdr['cdelt2'])
     xnpix = ra.shape[0]
@@ -131,7 +131,7 @@ def quick_disk(file,size=10.,vsys=None,input_model=None,PA=312,incl=48,niter=5,m
                 intensity[iv,ix,iy] = (radiusm*modelm*Pi).sum()
 
     #Calculate chi-squared
-    print 'chi-squared: {:0.3f}'.format(((intensity-data)**2/noise**2).sum()/(xnpix*ynpix-1))
+    print 'chi-squared: {:0.3f}'.format(((intensity-data)**2/noise**2).sum()/(xnpix*ynpix*nv-nr))
 
             
 
@@ -140,7 +140,7 @@ def quick_disk(file,size=10.,vsys=None,input_model=None,PA=312,incl=48,niter=5,m
         for ir in range(1,nr):
             num,denom=0,0
             for iv in range(vmin,vmax):
-                w = data[iv,:,:]>3*noise
+                w = data[iv,:,:]>-5#3*noise
                 if w.sum()>0:
                     for itheta in range(ntheta):
                         Psa = np.exp(-((x-xsi[itheta,ir])**2+(y-eta[itheta,ir])**2)/(2*sigma**2))
@@ -169,7 +169,8 @@ def quick_disk(file,size=10.,vsys=None,input_model=None,PA=312,incl=48,niter=5,m
                     intensity[iv,ix,iy] = (radiusm*modelm*Pi).sum()
 
         #Calculate chi-squared
-        print 'chi-squared: {:0.3f}'.format(((intensity-data)**2/noise**2).sum()/(xnpix*ynpix-1))
+        print 'chi-squared: {:0.3f}'.format(((intensity-data)**2/noise**2).sum()/(xnpix*ynpix*nv-nr))
+        
 
     i = 1
     plt.figure()
@@ -227,7 +228,7 @@ def quick_disk(file,size=10.,vsys=None,input_model=None,PA=312,incl=48,niter=5,m
     else:
         return model
 
-def quick_disk_cont(file,size=10.,PA=312.,incl=48.,niter=5,gas_column=False,line='co32',tgas=25.,distance=122.):
+def quick_disk_cont(file,size=10.,PA=312.,incl=48.,niter=5,gas_column=False,line='co32',tgas=25.,distance=122.,offs=[0.,0.]):
     ''' Based on Scoville et al. 1983, this code is a quick estimate of the spatial distribution of the flux emitted by a flat disk. This is useful for determining the spatial distribution of the flux (e.g. rings vs continous disk). More detailed radiative transfer codes are needed to pull out temperature, or if the velocity profile is not given by a simple flat disk. As compared to quick_disk, this code does not model the velocity profile, and is useful for modeling continuum emission or moment 0 maps
 
     The code returns the model emissivities (rho(R), where I~2*pi*R*rho(R)) and creates a plot of the results. The left panel shows the data (with 3-sigma contour marked by dashed line). The central panel shows model (with 3-sigma contour marked by dashed line). The right panel shows the residuals with contours at 3,5,7,etc sigma (with 3-sigma flux contour from the data). In all three panels the grey-scale is the same and stretches over the dynamic range of the data. The bottom panel shows both intensity of the rings used in the model, as well as an estimate of the surface density profile, derived assuming Sigma~I/R^(-.5). The units on the intensity and surface density are arbitrary. 
@@ -277,8 +278,8 @@ def quick_disk_cont(file,size=10.,PA=312.,incl=48.,niter=5,gas_column=False,line
     ide = np.abs(dec) < size/2.
     data = data[:,ira]
     data = data[ide,:]
-    ra = ra[ira]
-    dec = dec[ide]
+    ra = ra[ira]-offs[0]
+    dec = dec[ide]-offs[1]
     dra = np.abs(3600*hdr['cdelt1'])
     ddec = np.abs(3600*hdr['cdelt2'])
     xnpix = ra.shape[0]
@@ -324,7 +325,7 @@ def quick_disk_cont(file,size=10.,PA=312.,incl=48.,niter=5,gas_column=False,line
             intensity[ix,iy] = (radiusm*modelm*Ps*dr).sum()*dtheta
 
     #Calculate chi-squared
-    print 'chi-squared: {:0.3f}'.format(((intensity-data)**2/noise**2).sum()/(xnpix*ynpix-1))
+    print 'chi-squared: {:0.3f}'.format(((intensity-data)**2/noise**2).sum()/(xnpix*ynpix-nr))
 
             
     for j in range(niter):
@@ -346,7 +347,7 @@ def quick_disk_cont(file,size=10.,PA=312.,incl=48.,niter=5,gas_column=False,line
                 intensity[ix,iy] = (radiusm*modelm*Ps*dr).sum()*dtheta
 
         #Calculate chi-squared
-        print 'chi-squared: {:0.3f}'.format(((intensity-data)**2/noise**2).sum()/(xnpix*ynpix-1))
+        print 'chi-squared: {:0.3f}'.format(((intensity-data)**2/noise**2).sum()/(xnpix*ynpix-nr))
 
     if gas_column:
         if line.lower() == 'co32':
@@ -370,8 +371,8 @@ def quick_disk_cont(file,size=10.,PA=312.,incl=48.,niter=5,gas_column=False,line
         distance *= pc.cgs.value
         column = intensity*1e-23*nu/c.cgs.value*4*np.pi/(h.cgs.value*nu*Aul)*1e5*distance**2
         sig_column = noise*1e-23*nu/c.cgs.value*4*np.pi/(h.cgs.value*nu*Aul)*1e5*distance**2
-        ram,dem = np.meshgrid(ra,dec)
-        area = np.exp(-(ram**2/(2*sigma**2)+dem**2/(2*sigma**2))).sum()
+        #ram,dem = np.meshgrid(ra,dec)
+        area = np.exp(-(ram**2/(2*sigma**2)+decm**2/(2*sigma**2))).sum()
         mass = column.sum()/area
         sig_mass = np.sqrt((sig_column**2)*xnpix**2)/area
         print 'Total number of molecules in upper level: {:0.2e} +- {:0.2e}(stat) +- {:0.2e}(sys) molecules'.format(mass,sig_mass,.2*mass)
@@ -428,6 +429,10 @@ def quick_disk_cont(file,size=10.,PA=312.,incl=48.,niter=5,gas_column=False,line
     #plt.colorbar(cs,label='Jy/beam',pad=0.,shrink=.8,format='%0.3f')
     plt.gca().invert_xaxis()
     plt.title('Convolved model')
+
+    print 'ra centroid:',(ram*data).sum()/data.sum()
+    print 'dec centroid:',(decm*data).sum()/data.sum()
+
 
     plt.subplot(233)
     cs = plt.contourf(ra,dec,data-intensity,glevels,cmap=plt.cm.Greys)

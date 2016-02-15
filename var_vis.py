@@ -110,7 +110,7 @@ def var_vis_cont(file,uvwidth=30,collapse=False):
         if wf.sum()>nclose:
             weight[iuv] = 1/np.std(real[w][s][wf][:nclose])**2 
         else:
-            print 'Not enough vis points at i={:6.0f} at uv={:4.3f}klam. Only found {:4.0f} nearby points}'.format((iuv,np.sqrt(u[iuv]**2+v[iuv]**2)*klam,wf.sum()))
+            print 'Not enough vis points at uv={:0.2f}klam. Only found {:0.0f} nearby points when {:0.0f} are needed'.format(np.sqrt(u[iuv]**2+v[iuv]**2)*klam,wf.sum(),nclose+1)
     print 'Elapsed time (hrs): ',(time.time()-start)/3600.
 
     return weight
