@@ -1,6 +1,6 @@
 #calculate chi-squared of best fit...
 
-def quick_disk(file,size=10.,vsys=None,input_model=None,PA=312,incl=48,niter=5,mstar=2.0,distance=122,return_spectrum=False,offs=[0.,0.]):
+def quick_disk(file,size=10.,vsys=None,input_model=None,PA=312,incl=48,niter=5,mstar=2.0,distance=122,return_spectrum=False,offs=[0.,0.],runquick=False):
     ''' Based on Scoville et al. 1983, this code is a quick estimate of the spatial distribution of the flux emitted by a flat rotating disk, based on the ratio of modeled intensity to the observed image plane intensity. By including velocity information it can pull out more detailed structure than simple visual inspection.
 
     Any results should be taken with a small grain of salt since this code does not do the full radiative transfer calculation and does not fit to the visibilities. The results will be distorted by the beam, which is assumed to be circular even though it could be highly elliptical, and any match to the image plane will be distorted by cleaning artifacts in the data. Also, the results derived by this code have not been rigorously tested against more detailed radiative transfer models. Also, it may be missing small structures since it relies on the cleaned map than the full visibility data set. It is useful as a first pass through a data set to determine if you need to model e.g. a rising/falling surface density profile, or multiple narrow rings vs a single broad ring. 
@@ -37,6 +37,8 @@ def quick_disk(file,size=10.,vsys=None,input_model=None,PA=312,incl=48,niter=5,m
     :param return_spectrum:
     If set to True then the code returns the spectrum rather than the model emissivities. Useful for comparing to the data. Both the velocities of each channel, plus the spectrum, are returned [e.g. velo,spec = quick_disk('myfile.fits')]
 
+    :param runquick:
+    If set to True, then every 4th pixel in the image is modeled. This greatly speeds up computation time without an enourmous sacrifice in quality of the fit (since a single beam is generally >4 pixels across, this sampling still measures the flux in every beam)
 
 '''
     from astropy.io import fits
@@ -63,7 +65,15 @@ def quick_disk(file,size=10.,vsys=None,input_model=None,PA=312,incl=48,niter=5,m
     xnpix = ra.shape[0]
     ynpix = dec.shape[0]
 
-    #PA,incl = np.radians((PA-90.)/2),np.radians(incl)
+    if runquick:
+        data = data[:,::4,::4]
+        ra = ra[::4]
+        dec = dec[::4]
+        dra*=4
+        ddec*=4
+        xnpix = xnpix/4+1
+        ynpix = ynpix/4+1
+
     PA,incl = np.radians(PA),np.radians(incl)
 
     if (hdr['ctype3'] == 'VELO-LSR') or (hdr['ctype3']=='VELO-OBS'):
@@ -92,7 +102,7 @@ def quick_disk(file,size=10.,vsys=None,input_model=None,PA=312,incl=48,niter=5,m
     #intrinsic model
     ntheta = 100
 #    nr = (float(size)/2*np.sqrt(2.)/(sigma/5.)).astype(int)
-    nr = (float(size)/2/(sigma/10.)).astype(int)
+    nr = (float(size)/2/(sigma/5.)).astype(int)
     #radius = np.linspace(0.,float(size)/2*np.sqrt(2.),nr)
     radius = np.linspace(0.,float(size)/2.,nr)
     dr = radius[1]-radius[0]#radius-np.roll(radius,1)
@@ -110,7 +120,7 @@ def quick_disk(file,size=10.,vsys=None,input_model=None,PA=312,incl=48,niter=5,m
     mstar *= M_sun.cgs.value
     distance *= pc.cgs.value#122*pc.cgs.value
     vmodel = np.sqrt(G.cgs.value*mstar/(np.radians(radiusm/3600.)*distance))*np.cos(thetam)*np.sin(incl)
-    dvt = 2*dv #thermal broadening
+    dvt = dv/3 #thermal broadening
 
 
     ram,decm = np.meshgrid(ra,dec)
@@ -145,7 +155,7 @@ def quick_disk(file,size=10.,vsys=None,input_model=None,PA=312,incl=48,niter=5,m
                     for itheta in range(ntheta):
                         Psa = np.exp(-((x-xsi[itheta,ir])**2+(y-eta[itheta,ir])**2)/(2*sigma**2))
                         Pva = .5*(np.abs(velo[iv]-vmodel[itheta,ir])<1*dv/2.)+.25*((np.abs(velo[iv]-vmodel[itheta,ir])>1*dv/2.) & (np.abs(velo[iv]-vmodel[itheta,ir])<3*dv/2.))
-                    #Pva = np.exp(-(velo[iv]-vmodel[itheta,ir])**2/(2*dvt**2))
+                        #Pva = np.exp(-(velo[iv]-vmodel[itheta,ir])**2/(2*dvt**2))
                         if Pva > 0:
                             num += ((data[iv,:,:][w]/intensity[iv,:,:][w])*Psa[w]*Pva).sum()
                             denom += (Psa[w]*Pva).sum()
@@ -299,7 +309,7 @@ def quick_disk_cont(file,size=10.,PA=312.,incl=48.,niter=5,gas_column=False,line
     ntheta = 100
     #nr = (float(size)/2*np.sqrt(2.)/(sigma/5.)).astype(int)
     #radius = np.linspace(0.,float(size)/2*np.sqrt(2.),nr)
-    nr = (float(size)/2/(sigma/10.)).astype(int)
+    nr = (float(size)/2/(sigma/5.)).astype(int)
     radius = np.linspace(0.,float(size)/2.,nr)
     dr = radius[1]-radius[0]#radius-np.roll(radius,1)
     #dr[0] = 0.
