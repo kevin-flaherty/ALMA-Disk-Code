@@ -35,7 +35,7 @@ def quick_disk(file,size=10.,vsys=None,input_model=None,PA=312,incl=48,niter=5,m
     Distance to the disk, in units of parsecs
 
     :param return_spectrum:
-    If set to True then the code returns the spectrum rather than the model emissivities. Useful for comparing to the data. Both the velocities of each channel, plus the spectrum, are returned [e.g. velo,spec = quick_disk('myfile.fits')]
+    If set to True then the code returns the spectrum rather than the model emissivities. Useful for comparing to the data. Both the velocities of each channel, plus the spectrum, are returned [e.g. velo,spec = quick_disk('myfile.fits',return_spectrum=True)]. Velocity is in units of km/sec and is defined relative to line center (ie. you will have to add any systemic velocity)
 
     :param runquick:
     If set to True, then every 4th pixel in the image is modeled. This greatly speeds up computation time without an enourmous sacrifice in quality of the fit (since a single beam is generally >4 pixels across, this sampling still measures the flux in every beam)
@@ -71,8 +71,8 @@ def quick_disk(file,size=10.,vsys=None,input_model=None,PA=312,incl=48,niter=5,m
         dec = dec[::4]
         dra*=4
         ddec*=4
-        xnpix = xnpix/4+1
-        ynpix = ynpix/4+1
+        xnpix = len(ra)#xnpix/4+1
+        ynpix = len(dec)#ynpix/4+1
 
     PA,incl = np.radians(PA),np.radians(incl)
 
@@ -86,10 +86,15 @@ def quick_disk(file,size=10.,vsys=None,input_model=None,PA=312,incl=48,niter=5,m
         nv = velo.shape[0]
     else:
         freq = (np.arange(hdr['naxis3'])+1-hdr['crpix3'])*hdr['cdelt3']+hdr['crval3']
-        velo = (np.median(freq)-freq)/np.median(freq)*2.99e10
-        if vsys is None:
-            velo -= np.median(velo)
-        else:
+        #velo = (np.median(freq)-freq)/np.median(freq)*2.99e10
+        try:
+            velo = (hdr['restfrq']-freq)/hdr['restfrq']*2.99e10
+        except KeyError:
+            velo = (np.median(freq)-freq)/np.median(freq)*2.99e10
+        if vsys is not None:
+        #if vsys is None:
+        #    velo -= np.median(velo)
+        #else:
             velo -= vsys*1e5
         dv = np.abs(velo[1]-velo[0])
         nv = len(velo)
@@ -165,6 +170,7 @@ def quick_disk(file,size=10.,vsys=None,input_model=None,PA=312,incl=48,niter=5,m
             model[ir] = model[ir]*num/denom
             
         model[model<0] = 0.
+        model[np.isnan(model)] = 0.
         model[0] = 0.
         modelm = np.outer(np.ones(ntheta),model)
 
@@ -234,7 +240,7 @@ def quick_disk(file,size=10.,vsys=None,input_model=None,PA=312,incl=48,niter=5,m
         area = np.exp(-(ram**2/(2*sigmaj**2)+dem**2/(2*sigmin**2))).sum()
         im_dec = intensity.sum(axis=2)/area
         spec = im_dec.sum(axis=1)
-        return velo,spec
+        return velo/1e5,spec
     else:
         return model
 
