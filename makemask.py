@@ -6,13 +6,13 @@
 ##
 ## the 'mask.mask' file can then be used in cleaning with the region keyword ( region='mask(mask.mask)')
 
-### To use as a mask in CASA, execute the following commands
+### To use as a mask in CASA, first set imcen to RA and Dec, in decimal degrees, of the phase center of the image and then execute the following commands within CASA
 # importfits(fitsimage='mask.fits',imagename='mask.im',defaultaxes=True,defaultaxesvalues=['','','','I'])
 # makemask(mode='copy',inpimage='mask.im',inpmask='mask.im',output='mask.im:mask0')
 ##
-## This should then be used in clean with the mask keyword (mask='mask.im') in theory, but in practice it doesn't seem to work...
+## This should then be used in clean with the mask keyword (mask='mask.im') in theory, but in practice it doesn't always seem to work...
 
-def butterfly(mstar=2.,Rin=0.1,Rout=200.,incl=45.,PA=0.,dist=140.,dv=0.1,npix=512,imres=0.01,offs=[0.,0.],beam=.5,nchans=15,chanstep=.1,voff=0.,outfile='mask.fits',freq0=230.538):
+def butterfly(mstar=2.,Rin=0.1,Rout=200.,incl=45.,PA=0.,dist=140.,dv=0.1,npix=512,imres=0.01,offs=[0.,0.],beam=.5,nchans=15,chanstep=.1,voff=0.,outfile='mask.fits',freq0=230.538,imcen=[0.,0.]):
     ''' Calculate the location of emission associated with a Keplerian disk. Result is a fits image with 1's in the expected location of emission, and 0's everywhere else. Parameters allow for control of emission profile (mstar, Rin, Rout, dv, dist), its orientation (incl, PA, npix, imres, offs, beam) and the velocity sampling (nchans, chanstep, voff). [Edge of disk is cutoff if major axis is larger than imres*dist*npix]
 
     :param mstar (default=2):
@@ -62,6 +62,9 @@ def butterfly(mstar=2.,Rin=0.1,Rout=200.,incl=45.,PA=0.,dist=140.,dv=0.1,npix=51
 
     :param freq0 (default=230.538):
     Rest frequency, in GHz. Needed to read the file into CASA or MIRIAD.
+
+    :param imcen (default=[0.,0.]):
+    RA and Dec, in decimal degrees, of the center of the image. If using the mask in CASA, this needs to be set to the phase center of the image.
     '''
 
     import numpy as np
@@ -131,12 +134,14 @@ def butterfly(mstar=2.,Rin=0.1,Rout=200.,incl=45.,PA=0.,dist=140.,dv=0.1,npix=51
     hdr['NAXIS3'] = nchans
     hdr['CDELT1'] = -1*imres/3600.
     hdr['CRPIX1'] = npix/2.+.5
-    hdr['CRVAL1'] = 0.
+    hdr['CRVAL1'] = imcen[0]
     hdr['CTYPE1'] = 'RA---SIN'
+    hdr['CUNIT1'] = 'deg'
     hdr['CDELT2'] = imres/3600.
     hdr['CRPIX2'] = npix/2.+.5
-    hdr['CRVAL2'] = 0.
+    hdr['CRVAL2'] = imcen[1]
     hdr['CTYPE2'] = 'DEC--SIN'
+    hdr['CUNIT2'] = 'deg'
     hdr['CTYPE3'] = 'VELO-LSR'
     hdr['CDELT3'] = chanstep*1e3
     hdr['CRPIX3'] = 1.
@@ -148,7 +153,7 @@ def butterfly(mstar=2.,Rin=0.1,Rout=200.,incl=45.,PA=0.,dist=140.,dv=0.1,npix=51
     
 
 
-def contmask(Rin=0.1,Rout=200.,incl=45,PA=0.,dist=140.,npix=512,imres=0.01,offs=[0.,0.],beam=.5,outfile='mask.fits',freq0=230.538):
+def contmask(Rin=0.1,Rout=200.,incl=45,PA=0.,dist=140.,npix=512,imres=0.01,offs=[0.,0.],beam=.5,outfile='mask.fits',freq0=230.538,imcen=[0.,0.]):
     '''Similar to butterfly, but for continuum instead of line images (ie only one spectral dimension) [Edge of disk is cutoff if major axis is larger than imres*dist*npix]
 
     :param Rin (default=0.1):
@@ -184,6 +189,8 @@ def contmask(Rin=0.1,Rout=200.,incl=45,PA=0.,dist=140.,npix=512,imres=0.01,offs=
     :param freq0 (default=230.538):
     Rest frequency, in GHz. Needed to read the file into CASA or MIRIAD.
 
+    :param imcen (default=[0.,0.]):
+    RA and Dec, in decimal degrees, of the center of the image. If using the mask in CASA, this needs to be set to the phase center of the image.
 
 '''
 
@@ -236,12 +243,14 @@ def contmask(Rin=0.1,Rout=200.,incl=45,PA=0.,dist=140.,npix=512,imres=0.01,offs=
     hdr['NAXIS2'] = npix
     hdr['CDELT1'] = -1*imres/3600.
     hdr['CRPIX1'] = npix/2.+.5
-    hdr['CRVAL1'] = 0.
+    hdr['CRVAL1'] = imcen[0]
     hdr['CTYPE1'] = 'RA---SIN'
+    hdr['CUNIT1'] = 'deg'
     hdr['CDELT2'] = imres/3600.
     hdr['CRPIX2'] = npix/2.+.5
-    hdr['CRVAL2'] = 0.
+    hdr['CRVAL2'] = imcen[1]
     hdr['CTYPE2'] = 'DEC--SIN'
+    hdr['CUNIT2'] = 'deg'
     hdr['EPOCH'] = 2000.
     hdr['RESTFRQ'] = freq0
     hdu = fits.PrimaryHDU(image.T,hdr)
