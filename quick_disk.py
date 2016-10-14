@@ -86,15 +86,11 @@ def quick_disk(file,size=10.,vsys=None,input_model=None,PA=312,incl=48,niter=5,m
         nv = velo.shape[0]
     else:
         freq = (np.arange(hdr['naxis3'])+1-hdr['crpix3'])*hdr['cdelt3']+hdr['crval3']
-        #velo = (np.median(freq)-freq)/np.median(freq)*2.99e10
         try:
             velo = (hdr['restfrq']-freq)/hdr['restfrq']*2.99e10
         except KeyError:
             velo = (np.median(freq)-freq)/np.median(freq)*2.99e10
         if vsys is not None:
-        #if vsys is None:
-        #    velo -= np.median(velo)
-        #else:
             velo -= vsys*1e5
         dv = np.abs(velo[1]-velo[0])
         nv = len(velo)
@@ -228,9 +224,25 @@ def quick_disk(file,size=10.,vsys=None,input_model=None,PA=312,incl=48,niter=5,m
         plt.title('Data-Model')
     
     plt.subplot(414)
+    #fig = plt.figure()
+    #ax1 = fig.add_subplot(111)
+    #ax1.plot(radius,model*radius,'sk')
+    #ax1.set_xlabel('Deprojected Radius (")',fontweight='bold',fontsize=18)
+    #ax1.set_ylabel('Intensity',fontweight='bold',fontsize=18)
+    #for tick in ax1.xaxis.get_major_ticks():
+    #    tick.label.set_fontsize(14)
+    #    tick.label.set_fontweight('bold')
+    #for tick in ax1.yaxis.get_major_ticks():
+    #    tick.label.set_fontsize(14)
+    #    tick.label.set_fontweight('bold')
+    #ax2 = ax1.twiny()
+    #ax2.set_xlim(ax1.get_xlim())
+    #ax2.set_xticks([50./122,100./122,150./122,200./122,250./122,300./122])
+    #ax2.set_xticklabels(['50','100','150','200','250','300'],fontweight='bold',fontsize=14)
+    #ax2.set_xlabel('Deprojected Radius (au)',fontweight='bold',fontsize=18)
     plt.plot(radius,model*radius,'sk')
     plt.plot(radius,model*radius**(3./2),'or')
-    plt.xlabel('Deprojected Radius (")')
+    plt.xlabel('Deprojected Radius (")',fontweight='bold')
     plt.legend(('Intensity','Surface Density'),loc='upper right',frameon=False)
     
     if return_spectrum:
@@ -300,7 +312,7 @@ def quick_disk_cont(file,size=10.,PA=312.,incl=48.,niter=5,gas_column=False,line
     ddec = np.abs(3600*hdr['cdelt2'])
     xnpix = ra.shape[0]
     ynpix = dec.shape[0]
-
+    
     PA,incl = np.radians(PA),np.radians(incl)
 
     # - Beam size
@@ -309,6 +321,9 @@ def quick_disk_cont(file,size=10.,PA=312.,incl=48.,niter=5,gas_column=False,line
     t=np.linspace(0,2*np.pi,100)
     xbeam = -size/2.+1.1*sigma+a*np.cos(t)*np.cos(phi_beam)-b*np.sin(t)*np.sin(phi_beam)
     ybeam = -size/2.+1.1*sigma+a*np.cos(t)*np.sin(phi_beam)+b*np.sin(t)*np.cos(phi_beam)
+    ram,dem = np.meshgrid(ra,dec)
+    area = np.exp(-(ram**2/(2*(a/np.sqrt(2*np.log(2)))**2)+dem**2/(2*(b/np.sqrt(2*np.log(2)))**2))).sum()
+    #noise*=np.sqrt(area)
     
     # initial model
     #intrinsic model
@@ -326,7 +341,10 @@ def quick_disk_cont(file,size=10.,PA=312.,incl=48.,niter=5,gas_column=False,line
     eta = radiusm*np.sin(thetam)*np.cos(incl)
     model = np.ones(nr)*np.max(data)*(2*np.pi*sigma**2)
     modelm = np.outer(np.ones(ntheta),model)
-        
+    model_tot = np.ones((len(model),niter+1))
+    model_tot[:,0] = model
+    chisq_arr = np.zeros(niter+1)
+            
 
     ram,decm = np.meshgrid(ra,dec)
     x = -ram*np.sin(PA)-decm*np.cos(PA)
@@ -341,7 +359,9 @@ def quick_disk_cont(file,size=10.,PA=312.,incl=48.,niter=5,gas_column=False,line
             intensity[ix,iy] = (radiusm*modelm*Ps*dr).sum()*dtheta
 
     #Calculate chi-squared
-    print 'chi-squared: {:0.3f}'.format(((intensity-data)**2/noise**2).sum()/(xnpix*ynpix-nr))
+    dof = 1#xnpix*ynpix/area-nr #xnpix*ynpix-nr
+    print 'chi-squared: {:0.3f}'.format(((intensity-data)**2/noise**2).sum()/(dof))
+    chisq_arr[0] = ((intensity-data)**2/noise**2).sum()/(dof)
 
             
     for j in range(niter):
@@ -351,11 +371,13 @@ def quick_disk_cont(file,size=10.,PA=312.,incl=48.,niter=5,gas_column=False,line
             for itheta in range(ntheta):
                 num += ((data/intensity)*np.exp(-((x-radius[ir]*np.cos(theta[itheta]))**2+(y-radius[ir]*np.sin(theta[itheta])*np.cos(incl))**2)/(2*sigma**2))).sum()
                 denom += (np.exp(-((x-radius[ir]*np.cos(theta[itheta]))**2+(y-radius[ir]*np.sin(theta[itheta])*np.cos(incl))**2)/(2*sigma**2))).sum()
+                
             model[ir] = model[ir]*num/denom
-        
-        model[model<0] = 0.
-        modelm = np.outer(np.ones(ntheta),model)        
-    
+                    
+        #model[model<0] = 0.
+        modelm = np.outer(np.ones(ntheta),model)
+        model_tot[:,j+1] = model
+
         print 'Convolve new model...'
         for ix in range(xnpix):
             for iy in range(ynpix):
@@ -363,7 +385,9 @@ def quick_disk_cont(file,size=10.,PA=312.,incl=48.,niter=5,gas_column=False,line
                 intensity[ix,iy] = (radiusm*modelm*Ps*dr).sum()*dtheta
 
         #Calculate chi-squared
-        print 'chi-squared: {:0.3f}'.format(((intensity-data)**2/noise**2).sum()/(xnpix*ynpix-nr))
+        dof = 1#xnpix*ynpix/area-nr #xnpix*ynpix-nr
+        print 'chi-squared: {:0.3f}'.format(((intensity-data)**2/noise**2).sum()/(dof))
+        chisq_arr[j+1] =  ((intensity-data)**2/noise**2).sum()/(dof)
 
     if gas_column:
         if line.lower() == 'co32':
@@ -403,16 +427,22 @@ def quick_disk_cont(file,size=10.,PA=312.,incl=48.,niter=5,gas_column=False,line
         print 'Total molecule mass, assuming LTE: {:0.2e} +- {:0.2e}(stat) +-{:0.2e}(sys) Msun'.format(mass*mol_mass/x/M_sun.cgs.value,sig_mass*mol_mass/x/M_sun.cgs.value,.2*mass*mol_mass/x/M_sun.cgs.value)
         
 
-    nlevels = (np.max(data)-3*noise)/(2*noise)
-    levels = np.arange(nlevels)*2*noise+3*noise
+    nlevels = (np.max(data)-10*noise)/(5*noise)
+    levels = np.arange(nlevels)*10*noise+5*noise
     glevels = np.arange(101)/100.*np.max(data)
     
+    if niter>2:
+        unc = np.zeros(nr)
+        for i in range(nr):
+            h = (np.abs(model_tot[i,-1]-model_tot[i,-2])+np.abs(model_tot[i,-3]-model_tot[i,-2]))/2.
+            unc[i] = np.sqrt(2*np.abs((chisq_arr[-2]-2*chisq_arr[-1]+chisq_arr[-3])/h)**(-1))
+
 
     # plot the image
     plt.figure()
     plt.subplot(231)
     cs = plt.contourf(ra,dec,data,glevels,cmap=plt.cm.Greys)
-    plt.contour(ra,dec,data,[3*noise],linewidths=3,colors='k',linestyles=':')
+    plt.contour(ra,dec,data,[5*noise],linewidths=3,colors='k',linestyles=':')
     plt.xlabel(r'$\Delta\alpha$ (")',fontsize=14)
     plt.ylabel('$\Delta\delta$ (")',fontsize=14)
     #plt.colorbar(cs,label='Jy/beam',pad=0.,shrink=.8,format='%0.3f')
@@ -420,18 +450,6 @@ def quick_disk_cont(file,size=10.,PA=312.,incl=48.,niter=5,gas_column=False,line
     plt.title('Data')
     plt.plot(xbeam,ybeam,lw=2)
 
-    ax=plt.subplot(212)
-    plt.plot(radius,radius*model,'sk')
-    #plt.loglog(radius*61,model*radius**(3./2),'or')
-    plt.plot(radius,model*radius**(3./2),'or')
-    plt.xlabel('Deprojected Radius (")')
-    #plt.xlabel('Radius (AU)',fontsize=14)
-    #plt.ylabel('Gas Surface Density \n(arbitrary units)',fontsize=14)
-    #plt.xlim(20,400)
-    #plt.ylim(1e-2,1e-1)
-    #ax.set_xticks([20,30,40,50,60,70,80,90,100,200,300])
-    #ax.set_xticklabels(['20','30','40','50',' ','70',' ',' ','100','200','300'],fontsize=14)
-    plt.legend(('Intensity','Surface Density'),loc='upper right',frameon=False)
 
     plt.subplot(232)
     if gas_column:
@@ -439,7 +457,7 @@ def quick_disk_cont(file,size=10.,PA=312.,incl=48.,niter=5,gas_column=False,line
         plt.colorbar(cs,label='N$_u$/beam',pad=0.,shrink=.8,format='%0.2e')
     else:
         cs = plt.contourf(ra,dec,intensity,glevels,cmap=plt.cm.Greys)
-    plt.contour(ra,dec,intensity,[3*noise],linewidths=3,colors='k',linestyles=':')
+    plt.contour(ra,dec,intensity,[5*noise],linewidths=3,colors='k',linestyles=':')
     plt.xlabel(r'$\Delta\alpha$ (")',fontsize=14)
     plt.ylabel('$\Delta\delta$ (")',fontsize=14)
     #plt.colorbar(cs,label='Jy/beam',pad=0.,shrink=.8,format='%0.3f')
@@ -453,12 +471,25 @@ def quick_disk_cont(file,size=10.,PA=312.,incl=48.,niter=5,gas_column=False,line
     plt.subplot(233)
     cs = plt.contourf(ra,dec,data-intensity,glevels,cmap=plt.cm.Greys)
     plt.contour(ra,dec,data-intensity,levels,linewidths=3,colors='k')
-    plt.contour(ra,dec,data,[3*noise],linewidths=3,colors='k',linestyles=':')
+    plt.contour(ra,dec,data,[5*noise],linewidths=3,colors='k',linestyles=':')
     plt.xlabel(r'$\Delta\alpha$ (")',fontsize=14)
     plt.ylabel('$\Delta\delta$ (")',fontsize=14)
     plt.colorbar(cs,label=hdr['bunit'],pad=0.,shrink=.8,format='%0.3f')
     plt.gca().invert_xaxis()
     plt.title('Data-Model')
+
+
+    ax=plt.subplot(212)
+    #plt.plot(radius,radius*model,'sk') #Intensity
+#    if niter>2:
+#        plt.errorbar(radius,model,yerr=unc,fmt='sk')
+#    else:
+    plt.plot(radius,model,'sk') #Emissivity
+    #plt.plot(radius,model*radius**(3./2),'or')
+    plt.xlabel('Deprojected Radius (")')
+    #plt.legend(('Intensity','Surface Density'),loc='upper right',frameon=False)
+
+
     plt.show()
 
     return model
@@ -515,5 +546,13 @@ def calc_noise(image,imx=10):
         else:
             high = npix/2+3*imx/2
     
-        noise5 = np.std(image[low:high,low:high])
-        return noise5
+        noise1 = np.std(image[low:npix/2-imx/2,low:npix/2-imx/2])
+        noise2 = np.std(image[low:npix/2-imx/2,npix/2+imx/2:high])
+        noise3 = np.std(image[npix/2+imx/2:high,low:npix/2-imx/2])
+        noise4 = np.std(image[npix/2+imx/2:high,npix/2+imx/2:high])
+        #noise1 = np.std(image[0:npix/2-imx/2,0:npix/2-imx/2])
+        #noise2 = np.std(image[0:npix/2-imx/2,npix/2+imx/2:-1])
+        #noise3 = np.std(image[npix/2+imx/2:-1,0:npix/2-imx/2])
+        #noise4 = np.std(image[npix/2+imx/2:-1,npix/2+imx/2:-1])
+        #noise5 = np.std(image[low:high,low:high])
+        return np.mean([noise1,noise2,noise3,noise4])

@@ -12,6 +12,7 @@ var_vis.py: A python script for deriving the weights of visibility data based on
 
 makemask.py: A python script for making masks for line (butterfly) or continuum (contmask) data. Based on input disk parameters (e.g. incl, PA, Mstar, etc.), create an image with 1's at the location of the disk, and 0's everywhere else. Useful for creating masks when cleaning or searching for faint emission.
 
+pv.py: A python function for generating a PV diagram from an ALMA dataset
 
 
 alma_chisq.pdf: A introduction to manipulating ALMA visibility data within IDL or Python. Focused mainly on how to read the data into your favorite programming environment.
