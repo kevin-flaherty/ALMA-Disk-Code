@@ -14,6 +14,8 @@ makemask.py: A python script for making masks for line (butterfly) or continuum 
 
 pv.py: A python function for generating a PV diagram from an ALMA dataset
 
+azav.py: A python function for generating an azimuthally average radial profile from an ALMA dataset
+
 
 alma_chisq.pdf: A introduction to manipulating ALMA visibility data within IDL or Python. Focused mainly on how to read the data into your favorite programming environment.
 
