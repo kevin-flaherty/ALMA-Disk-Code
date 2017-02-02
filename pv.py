@@ -57,7 +57,7 @@ def pv(file,PA=0.,size=10.,vsys=0.,mstar=2.3,distance=122.,incl=48.,add_kep=Fals
     else:
         freq = (np.arange(hdr['naxis3'])+1-hdr['crpix3'])*hdr['cdelt3']+hdr['crval3']
         try:
-            velo = (hdr['restfreq']-freq)/hdr['restfreq']*2.99e5
+            velo = (hdr['restfrq']-freq)/hdr['restfrq']*2.99e5
         except KeyError:
             velo = (np.median(freq)-freq)/np.median(freq)*2.99e5
 

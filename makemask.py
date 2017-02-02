@@ -128,10 +128,11 @@ def butterfly(mstar=2.,Rin=0.1,Rout=200.,incl=45.,PA=0.,dist=140.,dv=0.1,npix=51
     hdr = fits.Header()
     hdr['SIMPLE'] = 'T'
     hdr['BITPIX'] = 32
-    hdr['NAXIS'] = 3
+    hdr['NAXIS'] = 4
     hdr['NAXIS1'] = npix
     hdr['NAXIS2'] = npix
     hdr['NAXIS3'] = nchans
+    hdr['NAXIS4'] = 1
     hdr['CDELT1'] = -1*imres/3600.
     hdr['CRPIX1'] = npix/2.+.5
     hdr['CRVAL1'] = imcen[0]
@@ -146,8 +147,12 @@ def butterfly(mstar=2.,Rin=0.1,Rout=200.,incl=45.,PA=0.,dist=140.,dv=0.1,npix=51
     hdr['CDELT3'] = chanstep*1e3
     hdr['CRPIX3'] = 1.
     hdr['CRVAL3'] = velo_steps[0]*1e3
+    hdr['CTYPE4'] = 'STOKES'
+    hdr['CDELT4'] = 1.
+    hdr['CRPIX4'] = 1.
+    hdr['CRVAL4'] = 1.
     hdr['EPOCH'] = 2000.
-    hdr['RESTFRQ'] = freq0
+    hdr['RESTFREQ'] = freq0*1e9
     hdu = fits.PrimaryHDU(image.T,hdr)
     hdu.writeto(outfile,clobber=True,output_verify='fix')
     

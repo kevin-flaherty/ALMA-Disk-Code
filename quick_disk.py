@@ -224,22 +224,6 @@ def quick_disk(file,size=10.,vsys=None,input_model=None,PA=312,incl=48,niter=5,m
         plt.title('Data-Model')
     
     plt.subplot(414)
-    #fig = plt.figure()
-    #ax1 = fig.add_subplot(111)
-    #ax1.plot(radius,model*radius,'sk')
-    #ax1.set_xlabel('Deprojected Radius (")',fontweight='bold',fontsize=18)
-    #ax1.set_ylabel('Intensity',fontweight='bold',fontsize=18)
-    #for tick in ax1.xaxis.get_major_ticks():
-    #    tick.label.set_fontsize(14)
-    #    tick.label.set_fontweight('bold')
-    #for tick in ax1.yaxis.get_major_ticks():
-    #    tick.label.set_fontsize(14)
-    #    tick.label.set_fontweight('bold')
-    #ax2 = ax1.twiny()
-    #ax2.set_xlim(ax1.get_xlim())
-    #ax2.set_xticks([50./122,100./122,150./122,200./122,250./122,300./122])
-    #ax2.set_xticklabels(['50','100','150','200','250','300'],fontweight='bold',fontsize=14)
-    #ax2.set_xlabel('Deprojected Radius (au)',fontweight='bold',fontsize=18)
     plt.plot(radius,model*radius,'sk')
     plt.plot(radius,model*radius**(3./2),'or')
     plt.xlabel('Deprojected Radius (")',fontweight='bold')
@@ -254,7 +238,7 @@ def quick_disk(file,size=10.,vsys=None,input_model=None,PA=312,incl=48,niter=5,m
         spec = im_dec.sum(axis=1)
         return velo/1e5,spec
     else:
-        return model
+        return radius,model*radius
 
 def quick_disk_cont(file,size=10.,PA=312.,incl=48.,niter=5,gas_column=False,line='co32',tgas=25.,distance=122.,offs=[0.,0.]):
     ''' Based on Scoville et al. 1983, this code is a quick estimate of the spatial distribution of the flux emitted by a flat disk. This is useful for determining the spatial distribution of the flux (e.g. rings vs continous disk). More detailed radiative transfer codes are needed to pull out temperature, or if the velocity profile is not given by a simple flat disk. As compared to quick_disk, this code does not model the velocity profile, and is useful for modeling continuum emission or moment 0 maps
@@ -556,3 +540,30 @@ def calc_noise(image,imx=10):
         #noise4 = np.std(image[npix/2+imx/2:-1,npix/2+imx/2:-1])
         #noise5 = np.std(image[low:high,low:high])
         return np.mean([noise1,noise2,noise3,noise4])
+
+#radius2,model2=quick_disk('DCOplus_lowres.cm.fits',vsys=5.74,PA=312.,incl=-47.,niter=10,distance=122.,runquick=True,size=6,mstar=2.3)
+#fig=plt.figure()
+#ax1=fig.add_subplot(111)
+#ax1.plot(radius2,model2,'sk')
+#ax1.set_xlabel('Deprojected Radius (")',fontweight='bold',fontsize=18)
+#ax1.set_ylabel('Intensity',fontweight='bold',fontsize=18)
+#for tick in ax1.xaxis.get_major_ticks():
+#    tick.label.set_fontsize(16)
+#    tick.label.set_fontweight('bold')
+#
+#for tick in ax1.yaxis.get_major_ticks():
+#    tick.label.set_fontsize(16)
+#    tick.label.set_fontweight('bold')
+#
+#ax2=ax1.twiny()
+#ax2.set_xlim(ax1.get_xlim())
+#ax2.set_xticks([0./122,50./122,100./122,150./122,200./122,250./122,300./122,350./122])
+#ax2.set_xticklabels(['','50','100','150','200','250','300','350'],fontweight='bold',fontsize=16)
+#ax2.set_xlabel('Deprojected Radius (au)',fontweight='bold',fontsize=18)
+#plt.axvline(90./122,color='k',lw=3,ls='--')
+#plt.axvline(260./122,color='k',lw=3)
+#plt.axvline(140./122,color='k',lw=3)
+#plt.axvline(60./122,color='k',lw=3)
+#plt.plot([.44-.23/2,.44+.23/2],[.29,.29],color='k',lw=3)
+#plt.plot([.81-.15/2,.81+.15/2],[.29,.29],color='k',lw=3)
+#plt.plot([1.13-.28/2,1.13+.28/2],[.28,.28],color='k',lw=3)
