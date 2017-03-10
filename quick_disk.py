@@ -505,11 +505,11 @@ def calc_noise(image,imx=10):
             high = npix/2+3*imx/2
     
         for i in range(nfreq):
-            noise1[i] = np.std(image[i,low:npix/2-imx/2,low:npix/2-imx/2])
-            noise2[i] = np.std(image[i,low:npix/2-imx/2,npix/2+imx/2:high])
-            noise3[i] = np.std(image[i,npix/2+imx/2:high,low:npix/2-imx/2])
-            noise4[i] = np.std(image[i,npix/2+imx/2:high,npix/2+imx/2:high])
-            noise5[i] = np.std(image[i,low:high,low:high])
+            noise1[i] = np.std(image[i,low:npix/2-imx/2,low:npix/2-imx/2],ddof=1)
+            noise2[i] = np.std(image[i,low:npix/2-imx/2,npix/2+imx/2:high],ddof=1)
+            noise3[i] = np.std(image[i,npix/2+imx/2:high,low:npix/2-imx/2],ddof=1)
+            noise4[i] = np.std(image[i,npix/2+imx/2:high,npix/2+imx/2:high],ddof=1)
+            noise5[i] = np.std(image[i,low:high,low:high],ddof=1)
             noise[i] = np.mean([noise1[i],noise2[i],noise3[i],noise4[i]])
         #flux = np.array([image[i,low:npix/2-imx/2,low:npix/2-imx/2],image[i,low:npix/2-imx/2,npix/2+imx/2:high],image[i,npix/2+imx/2:high,low:npix/2-imx/2],image[i,npix/2+imx/2:high,npix/2+imx/2:high]])
         #print 'N>3sigma:',float((np.abs(flux.flatten())>3*noise[i]).sum())/flux.flatten().shape[0]
@@ -530,10 +530,10 @@ def calc_noise(image,imx=10):
         else:
             high = npix/2+3*imx/2
     
-        noise1 = np.std(image[low:npix/2-imx/2,low:npix/2-imx/2])
-        noise2 = np.std(image[low:npix/2-imx/2,npix/2+imx/2:high])
-        noise3 = np.std(image[npix/2+imx/2:high,low:npix/2-imx/2])
-        noise4 = np.std(image[npix/2+imx/2:high,npix/2+imx/2:high])
+        noise1 = np.std(image[low:npix/2-imx/2,low:npix/2-imx/2],ddof=1)
+        noise2 = np.std(image[low:npix/2-imx/2,npix/2+imx/2:high],ddof=1)
+        noise3 = np.std(image[npix/2+imx/2:high,low:npix/2-imx/2],ddof=1)
+        noise4 = np.std(image[npix/2+imx/2:high,npix/2+imx/2:high],ddof=1)
         #noise1 = np.std(image[0:npix/2-imx/2,0:npix/2-imx/2])
         #noise2 = np.std(image[0:npix/2-imx/2,npix/2+imx/2:-1])
         #noise3 = np.std(image[npix/2+imx/2:-1,0:npix/2-imx/2])
