@@ -1,4 +1,4 @@
-def pv(file,PA=0.,size=10.,vsys=0.,mstar=2.3,distance=122.,incl=48.,add_kep=False):
+def pv(file,PA=0.,size=10.,vsys=0.,mstar=2.3,distance=122.,incl=48.,add_kep=False,offs=[0.,0.]):
     '''Create a position velocity diagram across an image. It makes one plot showing the central velocity channel, marking the line along with the PV diagram is defined, along with a PV diagram. Can optionally (with add_kep) show a Keplerian rotation profile on the PV diagram
 
     :param file:
@@ -25,6 +25,9 @@ def pv(file,PA=0.,size=10.,vsys=0.,mstar=2.3,distance=122.,incl=48.,add_kep=Fals
     :param add_kep:
     Set to True to add a Keplerian profile to the PV diagram. This profile is shown with two dashed lines.
 
+    :param offs:
+    A two element array containing the offset in arcseconds along the RA and Dec directions of the center of the disk.
+
 '''
     from astropy.io import fits
     import matplotlib.pyplot as plt
@@ -37,6 +40,9 @@ def pv(file,PA=0.,size=10.,vsys=0.,mstar=2.3,distance=122.,incl=48.,add_kep=Fals
 
     ra = 3600*hdr['cdelt1']*(np.arange(hdr['naxis1'])-hdr['naxis1']/2.-0.5)
     de = -1*ra
+
+    ra-=offs[0]
+    de-=offs[1]
 
     ira = np.abs(ra) < size/2.
     ide = np.abs(de) < size/2.
