@@ -32,8 +32,8 @@ def var_vis(file,uvwidth=30,collapse=False,realimag=False):
 
     nuv = u.size
     nfreq = (real.shape)[1]
-    uv = u**2+v**2
-    nclose = 50 #number of nearby visibility points to use when measuring the dispersion
+    uv = np.sqrt(u**2+v**2)
+    nclose = 40 #number of nearby visibility points to use when measuring the dispersion
     #uvwidth = 30 #area around a particular uv point to consider when searching for the nearest nclose neighbors (smaller numbers help make the good run faster, but could result in many points for which the weight cannot be calculated and is left at 0)
     max_dist = np.zeros(nuv)
     
@@ -114,7 +114,7 @@ def var_vis_cont(file,uvwidth=30,collapse=False,realimag=False):
     im.close()
 
     nuv = u.size
-    uv = u**2+v**2
+    uv = np.sqrt(u**2+v**2)
     nclose = 50 #number of nearby visibility points to use when measuring the dispersion
     #uvwidth = 30 #area around a particular uv point to consider when searching for the nearest nclose neighbors (smaller numbers help make the good run faster, but could result in many points for which the weight cannot be calculated and is left at 0)
     max_dist = np.zeros(nuv)

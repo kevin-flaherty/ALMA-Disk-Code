@@ -44,7 +44,7 @@ def quick_disk(file,size=10.,vsys=None,input_model=None,PA=312,incl=48,niter=5,m
     from astropy.io import fits
     import numpy as np
     import matplotlib.pyplot as plt
-    from astropy.constants import G,pc,M_sun
+    from astropy.constants import G,pc,M_sun,au
 
     # - Read in the data
     im = fits.open(file)
@@ -97,8 +97,7 @@ def quick_disk(file,size=10.,vsys=None,input_model=None,PA=312,incl=48,niter=5,m
 
     # - Beam size
     sigma = np.mean([3600*hdr['bmaj']/(2*np.sqrt(2*np.log(2))),3600*hdr['bmin']/(2*np.sqrt(2*np.log(2)))])
-
-
+    
     # initial model
     #intrinsic model
     ntheta = 100
@@ -119,9 +118,9 @@ def quick_disk(file,size=10.,vsys=None,input_model=None,PA=312,incl=48,niter=5,m
         model = input_model#/((velo.max()-velo.min())/1e5)
     modelm = np.outer(np.ones(ntheta),model)
     mstar *= M_sun.cgs.value
-    distance *= pc.cgs.value#122*pc.cgs.value
+    distance *= pc.cgs.value
     vmodel = np.sqrt(G.cgs.value*mstar/(np.radians(radiusm/3600.)*distance))*np.cos(thetam)*np.sin(incl)
-    dvt = dv/3 #thermal broadening
+    dvt = 4*dv#/3 #thermal broadening
 
 
     ram,decm = np.meshgrid(ra,dec)
@@ -165,7 +164,7 @@ def quick_disk(file,size=10.,vsys=None,input_model=None,PA=312,incl=48,niter=5,m
                     denom+=0
             model[ir] = model[ir]*num/denom
             
-        model[model<0] = 0.
+        #model[model<0] = 0.
         model[np.isnan(model)] = 0.
         model[0] = 0.
         modelm = np.outer(np.ones(ntheta),model)
@@ -189,7 +188,7 @@ def quick_disk(file,size=10.,vsys=None,input_model=None,PA=312,incl=48,niter=5,m
     for iv in [nv/2,nv/4,3*nv/4]:
         nlevels = 10#(np.max(data[iv,:,:])-3*noise)/(2*noise)
         levels = np.arange(nlevels)*2*noise+3*noise
-        glevels = np.arange(101)/100.*np.max(data[iv,:,:])
+        glevels = np.arange(101)/100.*(np.max(data[iv,:,:])-np.min(data[iv,:,:]))+np.min(data[iv,:,:])
     # plot the image
         plt.subplot(4,3,i)
         i+=1
@@ -197,6 +196,7 @@ def quick_disk(file,size=10.,vsys=None,input_model=None,PA=312,incl=48,niter=5,m
         plt.contour(ra,dec,data[iv,:,:],[3*noise],linewidths=3,colors='k',linestyles=':')
         plt.xlabel(r'$\Delta\alpha$ (")',fontsize=14)
         plt.ylabel('$\Delta\delta$ (")',fontsize=14)
+        plt.gca().set_aspect('equal')
     #plt.colorbar(cs,label='Jy/beam',pad=0.,shrink=.8,format='%0.3f')
         plt.gca().invert_xaxis()
         plt.title('Data')
@@ -207,6 +207,7 @@ def quick_disk(file,size=10.,vsys=None,input_model=None,PA=312,incl=48,niter=5,m
         plt.contour(ra,dec,intensity[iv,:,:],[3*noise],linewidths=3,colors='k',linestyles=':')
         plt.xlabel(r'$\Delta\alpha$ (")',fontsize=14)
         plt.ylabel('$\Delta\delta$ (")',fontsize=14)
+        plt.gca().set_aspect('equal')
     #plt.colorbar(cs,label='Jy/beam',pad=0.,shrink=.8,format='%0.3f')
         plt.gca().invert_xaxis()
         plt.title('Convolved model')
@@ -219,6 +220,7 @@ def quick_disk(file,size=10.,vsys=None,input_model=None,PA=312,incl=48,niter=5,m
         plt.contour(ra,dec,data[iv,:,:],[3*noise],linewidths=3,colors='k',linestyles=':')
         plt.xlabel(r'$\Delta\alpha$ (")',fontsize=14)
         plt.ylabel('$\Delta\delta$ (")',fontsize=14)
+        plt.gca().set_aspect('equal')
         plt.colorbar(cs,label='Jy/beam',pad=0.,shrink=.8,format='%0.3f')
         plt.gca().invert_xaxis()
         plt.title('Data-Model')
@@ -228,7 +230,7 @@ def quick_disk(file,size=10.,vsys=None,input_model=None,PA=312,incl=48,niter=5,m
     plt.plot(radius,model*radius**(3./2),'or')
     plt.xlabel('Deprojected Radius (")',fontweight='bold')
     plt.legend(('Intensity','Surface Density'),loc='upper right',frameon=False)
-    
+
     if return_spectrum:
         ram,dem = np.meshgrid(ra,dec)
         sigmaj = 3600*hdr['bmaj']/(2*np.sqrt(2*np.log(2)))
@@ -413,7 +415,7 @@ def quick_disk_cont(file,size=10.,PA=312.,incl=48.,niter=5,gas_column=False,line
 
     nlevels = (np.max(data)-10*noise)/(5*noise)
     levels = np.arange(nlevels)*10*noise+5*noise
-    glevels = np.arange(101)/100.*np.max(data)
+    glevels = np.arange(101)/100.*(np.max(data)-np.min(data))+np.min(data)
     
     if niter>2:
         unc = np.zeros(nr)
@@ -485,7 +487,7 @@ def calc_noise(image,imx=10):
     import numpy as np
     if len(image.shape)>2:
     #could also consider calculating noise as a function of channel
-        imx=np.abs(imx)
+        imx=int(np.abs(imx))
         npix = image.shape[1]
         nfreq = image.shape[0]
         noise1 = np.zeros(nfreq)
@@ -518,7 +520,7 @@ def calc_noise(image,imx=10):
 
         return np.mean([noise1,noise2,noise3,noise4])
     else:
-        imx=np.abs(imx)
+        imx=int(np.abs(imx))
         npix = image.shape[1]
         
         if npix/2-3*imx/2 <0:

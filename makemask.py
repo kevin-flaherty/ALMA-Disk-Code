@@ -108,21 +108,20 @@ def butterfly(mstar=2.,Rin=0.1,Rout=200.,incl=45.,PA=0.,dist=140.,dv=0.1,npix=51
     velo_steps = np.arange(nchans)*chanstep+chanmin+voff
     image = np.zeros((npix,npix,nchans))
         
+    gauss = Gaussian2DKernel(beam/(imres*2*np.sqrt(2*np.log(2))))
     for i in range(nchans):
         w = (vlos+dv/2.>velo_steps[i]-chanstep/2.) & (vlos-dv/2.<(velo_steps[i]+chanstep/2.))
         image[:,:,i][w] = 1
 
-    # Convolve with finite spatial resolution
-        gauss = Gaussian2DKernel(beam/(imres*2*np.sqrt(2*np.log(2))))
-    for i in range(nchans):
+        # Convolve with finite spatial resolution
         image[:,:,i] = convolve(image[:,:,i],gauss,boundary=None)
     
     ## - Shift and rotate image to correct orientation
     image = ndimage.rotate(image,PA+180,reshape=False)
     pixshift = np.array([-1.,1.])*offs/(np.array([imres,imres]))
     image = ndimage.shift(image,(pixshift[0],pixshift[1],0),mode='nearest')
-    image[image<.01]=0. #clean up artifacts from interpolation 
-    image[image>.01]=1.
+    #image[image<.01]=0. #clean up artifacts from interpolation 
+    #image[image>.01]=1.
 
     ## - Make fits file
     hdr = fits.Header()
