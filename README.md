@@ -16,7 +16,7 @@ pv.py: A python function for generating a PV diagram from an ALMA dataset
 
 azav.py: A python function for generating an azimuthally average radial profile from an ALMA dataset
 
-rtheta.py: A python function to create a R vs theta map of an image. **Doesn't work**
+rtheta.py: A python function to create a R vs theta map of an image. 
 
 uvfit_rings.py: An implementation of the Zhang et al. 2016 method for fitting an axisymmetric disk with an underlying intensity distribution that includes a series of rings. 
 
