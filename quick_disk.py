@@ -216,7 +216,7 @@ def quick_disk(file,size=10.,vsys=None,input_model=None,PA=312,incl=48,niter=5,m
         i+=1
         cs = plt.contourf(ra,dec,data[iv,:,:]-intensity[iv,:,:],glevels,cmap=plt.cm.Greys)
         plt.contour(ra,dec,data[iv,:,:]-intensity[iv,:,:],levels,linewidths=3,colors='k')
-        plt.contour(ra,dec,data[iv,:,:]-intensity[iv,:,:],-levels,linewidths=3,colors='r')
+        plt.contour(ra,dec,data[iv,:,:]-intensity[iv,:,:],-levels[::-1],linewidths=3,colors='r')
         plt.contour(ra,dec,data[iv,:,:],[3*noise],linewidths=3,colors='k',linestyles=':')
         plt.xlabel(r'$\Delta\alpha$ (")',fontsize=14)
         plt.ylabel('$\Delta\delta$ (")',fontsize=14)
