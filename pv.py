@@ -213,16 +213,15 @@ def pv_point(file,PA=0.,size=10.,vsys=0.,offs=[0.,0.]):
     
     
     #find the values of ra and dec along the line defined by the PA
-    ra_line = de*np.tan(np.radians(PA))
-    w = (ra_line>np.sqrt(2)*np.min(ra)) & (ra_line<np.sqrt(2)*np.max(ra))
-    ra_line = ra_line[w]
-    de_line = de[w]
-    if PA==90.:
-        de_line = np.zeros(len(de))
-        ra_line = -ra
-    if PA ==270:
-        de_line = np.zeros(len(de))
-        ra_line = ra
+    if PA ==0 or PA==360:
+        ra_line = np.zeros(len(de))
+        de_line = de
+    else:
+        de_line = ra/np.tan(np.radians(PA))
+        w = (de_line>np.sqrt(2)*np.min(de)) & (de_line<np.sqrt(2)*np.max(de))
+        ra_line = ra[w]
+        de_line = de_line[w]
+
 
     sra = ra.argsort()
     sde = de.argsort()
@@ -234,7 +233,7 @@ def pv_point(file,PA=0.,size=10.,vsys=0.,offs=[0.,0.]):
 
     diagram = np.zeros((len(velo),len(dist)))
     for i in range(len(velo)):
-        diagram[i,:] = ndimage.map_coordinates(im_tmp[i,:,:],[[raind],[deind]],order=1).flatten()
+        diagram[i,:] = ndimage.map_coordinates(im_tmp[i,:,:],[[deind],[raind]],order=1).flatten()
 
     
 
