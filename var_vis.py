@@ -169,11 +169,13 @@ def add_weight_to_vis(file,weight,binned=False):
     
     if weight.shape[-1]==2:
         if binned:
-            vis[0].data['data'][:,0,0,0,0,2] = weight[:,0]
-            vis[0].data['data'][:,0,0,0,1,2] = weight[:,1]
+            vis[0].data['data'][:,0,0,0,0,0,2] = weight[:,0]
+            vis[0].data['data'][:,0,0,0,0,1,2] = weight[:,1]
         else:
-            vis[0].data['data'][:,0,0,0,:,0,2] = weight[:,0,np.newaxis]*np.ones(vis[0].data['data'].shape[4])
-            vis[0].data['data'][:,0,0,0,:,1,2] = weight[:,1,np.newaxis]*np.ones(vis[0].data['data'].shape[4])
+            #vis[0].data['data'][:,0,0,0,:,0,2] = weight[:,0,np.newaxis]*np.ones(vis[0].data['data'].shape[4])
+            #vis[0].data['data'][:,0,0,0,:,1,2] = weight[:,1,np.newaxis]*np.ones(vis[0].data['data'].shape[4])
+            vis[0].data['data'][:,0,0,0,:,0,2] = weight[:,:,0]
+            vis[0].data['data'][:,0,0,0,:,1,2] = weight[:,:,1]
     else:
         if binned:
             vis[0].data['data'][:,0,0,0,0,2] = weight

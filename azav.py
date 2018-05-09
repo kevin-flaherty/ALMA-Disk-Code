@@ -1,4 +1,4 @@
-def azav(file,PA,incl,size=10.,offs=[0.,0.],giveme=False):
+def azav(file,PA,incl,size=10.,offs=[0.,0.],giveme=False,calc_radius=False):
     '''Create an azimuthally averaged radial profile of disk emission. 
 
     :param file:
@@ -99,6 +99,12 @@ def azav(file,PA,incl,size=10.,offs=[0.,0.],giveme=False):
     for tick in axis.yaxis.get_major_ticks():
         tick.label1.set_fontsize(14)
         tick.label1.set_fontweight('bold')
+
+    if calc_radius:
+        #Calculate the radius the encompases 90% of the total flux
+        fsum = flux.cumsum()
+        r90 = np.interp(.9*fsum.max(),fsum,radius)
+        print 'Radius containing 90% of the flux: {:0.2f}"'.format(r90)
 
     if giveme:
         return radius,flux,unc
