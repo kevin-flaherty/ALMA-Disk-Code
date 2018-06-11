@@ -6,3 +6,5 @@
 *.tex~
 *.eps
 *.py~
+*eps-converted-to.pdf
+*synctex.gz
