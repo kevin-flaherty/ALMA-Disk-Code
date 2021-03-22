@@ -7,11 +7,12 @@ import matplotlib.pyplot as plt
 from astropy.io import fits
 #from galario import double as gdouble
 from astropy.constants import c
+from scipy.signal import convolve
 #from vis_sample import vis_sample
 
 def quick_disk2(pixel_size = 0.05, npixels = 512, nchans = 15, chanwidth = 0.3, beamsize=0.5):
-    #file = '/Users/kevinflahertyastro/sample_data/dmtaush_co21sb.cm.fits'
-    file = '/Users/kevinflahertyastro/sample_data/HD163296.CO32.regridded.cen15.cm.fits'
+    file = '/Users/kevinflahertyastro/sample_data/dmtaush_co21sb.cm.fits'
+    #file = '/Users/kevinflahertyastro/sample_data/HD163296.CO32.regridded.cen15.cm.fits'
     hdr = fits.getheader(file)
     #nchans = hdr['naxis4']
     #chanwidth = hdr['cdelt4']/hdr['crval4']*c.cgs.value/1e5
@@ -20,21 +21,24 @@ def quick_disk2(pixel_size = 0.05, npixels = 512, nchans = 15, chanwidth = 0.3, 
     nchans = hdr['naxis3']
     chanwidth = np.abs(hdr['cdelt3'])/1e3
     beamsize = 3600*(hdr['bmaj']+hdr['bmin'])/2
+    #print(npixels,pixel_size,nchans,chanwidth,beamsize)
 
-    r0 = np.arange(0.,npixels/2*pixel_size,5*beamsize)
+    r0 = np.arange(0.,npixels/2*pixel_size,beamsize)
     sigma = beamsize/4.
     nrings = len(r0)
-    ring_intensity = np.ones(nrings)
+    ring_intensity = np.ones(nrings)#*(r0/1.)**(-1.5)
+    ring_intensity[0] = ring_intensity[1]
     zdisk = np.zeros(nrings)#-2
-    inc = np.zeros(nrings)+np.radians(45)
-    PA = np.zeros(nrings)+40
+    inc = np.zeros(nrings)+np.radians(60)
+    PA = np.zeros(nrings)+310
 
     vphi = np.ones(nrings)
-    vr = np.zeros(nrings)
+    vr = np.zeros(nrings)+(r0/1.)**(-3./2)
     vz = np.zeros(nrings)
-    dv = np.zeros(nrings)+.5
+    dv = np.zeros(nrings)+.05
+    vsys = -0.23
 
-    velocities = -nchans/2*chanwidth+np.arange(nchans)*chanwidth
+    velocities = -nchans/2*chanwidth+np.arange(nchans)*chanwidth+vsys
 
     rings = {'r0':r0,'ring_intensity':ring_intensity,'zdisk':zdisk,'inc':inc,'PA':PA,'sigma':sigma,'nrings':nrings}
     velos = {'vphi':vphi,'vr':vr,'vz':vz,'dv':dv}
@@ -67,6 +71,16 @@ def image_log_like(params,data_filename,r0,sigma,nrings,image_props):
     velos = {'vphi':vphi,'vr':vr,'vz':vz,'dv':dv}
 
     image = make_model(rings,velos,image_props).T
+    print((np.isnan(image).sum()))
+    image[np.isnan(image)] = 0.
+    #Convolve the model image by the beam
+    xm,ym = np.meshgrid(np.arange(image_props['npixels']),np.arange(image_props['npixels']))
+    gauss = np.exp(-(np.sqrt((xm-image_props['npixels']/2)**2+(ym-image_props['npixels']/2)**2.)/(5*image_props['beamsize']**2.)))
+    #This doesn't really seem to work.
+    # And I feel like I could do this better (make gauss a 3d array?)
+    for i in range(image_props['nchans']):
+        image[i,:,:] = convolve(image[i,:,:],gauss,mode='same')
+
 
     data = fits.open(data_filename)
     data_image = data[0].data.squeeze()
@@ -74,25 +88,60 @@ def image_log_like(params,data_filename,r0,sigma,nrings,image_props):
 
     #The model images look empty when plotting HD 163296, but not for DM Tau...
     #That is weird because nothing changes in the model images between those two...
-    plt.subplot(2,2,1)
-    plt.contourf(image[3,:,:],100,cmap=plt.cm.afmhot)
-    plt.colorbar()
-    plt.gca().set_aspect(1)
-    plt.subplot(2,2,2)
-    plt.contourf(data_image[3,:,:],100,cmap=plt.cm.afmhot)
-    plt.colorbar()
-    plt.gca().set_aspect(1)
-    plt.subplot(2,2,3)
+    plt.subplot(6,2,1)
     plt.contourf(image[10,:,:],100,cmap=plt.cm.afmhot)
     plt.colorbar()
     plt.gca().set_aspect(1)
-    plt.subplot(2,2,4)
+    plt.subplot(6,2,2)
     plt.contourf(data_image[10,:,:],100,cmap=plt.cm.afmhot)
+    plt.colorbar()
+    plt.gca().set_aspect(1)
+    plt.subplot(6,2,3)
+    plt.contourf(image[12,:,:],100,cmap=plt.cm.afmhot)
+    plt.colorbar()
+    plt.gca().set_aspect(1)
+    plt.subplot(6,2,4)
+    plt.contourf(data_image[12,:,:],100,cmap=plt.cm.afmhot)
+    plt.colorbar()
+    plt.gca().set_aspect(1)
+    plt.subplot(6,2,5)
+    plt.contourf(image[14,:,:],100,cmap=plt.cm.afmhot)
+    plt.colorbar()
+    plt.gca().set_aspect(1)
+    plt.subplot(6,2,6)
+    plt.contourf(data_image[14,:,:],100,cmap=plt.cm.afmhot)
+    plt.colorbar()
+    plt.gca().set_aspect(1)
+    plt.subplot(6,2,7)
+    plt.contourf(image[15,:,:],100,cmap=plt.cm.afmhot)
+    plt.colorbar()
+    plt.gca().set_aspect(1)
+    plt.subplot(6,2,8)
+    plt.contourf(data_image[15,:,:],100,cmap=plt.cm.afmhot)
+    plt.colorbar()
+    plt.gca().set_aspect(1)
+    plt.subplot(6,2,9)
+    plt.contourf(image[16,:,:],100,cmap=plt.cm.afmhot)
+    plt.colorbar()
+    plt.gca().set_aspect(1)
+    plt.subplot(6,2,10)
+    plt.contourf(data_image[16,:,:],100,cmap=plt.cm.afmhot)
+    plt.colorbar()
+    plt.gca().set_aspect(1)
+    plt.subplot(6,2,11)
+    plt.contourf(image[18,:,:],100,cmap=plt.cm.afmhot)
+    plt.colorbar()
+    plt.gca().set_aspect(1)
+    plt.subplot(6,2,12)
+    plt.contourf(data_image[18,:,:],100,cmap=plt.cm.afmhot)
     plt.colorbar()
     plt.gca().set_aspect(1)
 
     #need to convolve model by the beam before calculating the chi-squared
+    print((np.isnan(data_image).sum()))
+
     chi = (data_image-image)**2./noise**2.
+
 
     return -0.5*chi.sum()
 
