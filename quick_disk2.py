@@ -21,28 +21,31 @@ def quick_disk2(pixel_size = 0.05, npixels = 512, nchans = 15, chanwidth = 0.3, 
     nchans = hdr['naxis3']
     chanwidth = np.abs(hdr['cdelt3'])/1e3
     beamsize = 3600*(hdr['bmaj']+hdr['bmin'])/2
+    bmaj = 3600*hdr['bmaj']
+    bmin = 3600*hdr['bmin']
+    bpa = np.radians(hdr['bpa'])*np.pi/2
     #print(npixels,pixel_size,nchans,chanwidth,beamsize)
 
     r0 = np.arange(0.,npixels/2*pixel_size,beamsize)
     sigma = beamsize/4.
     nrings = len(r0)
-    ring_intensity = np.ones(nrings)#*(r0/1.)**(-1.5)
+    ring_intensity = np.ones(nrings)*(r0/1.)**(-1.5)
     ring_intensity[0] = ring_intensity[1]
     zdisk = np.zeros(nrings)#-2
-    inc = np.zeros(nrings)+np.radians(60)
+    inc = np.zeros(nrings)+np.radians(40)
     PA = np.zeros(nrings)+310
 
     vphi = np.ones(nrings)
     vr = np.zeros(nrings)+(r0/1.)**(-3./2)
     vz = np.zeros(nrings)
-    dv = np.zeros(nrings)+.05
+    dv = np.zeros(nrings)+.2
     vsys = -0.23
 
     velocities = -nchans/2*chanwidth+np.arange(nchans)*chanwidth+vsys
 
     rings = {'r0':r0,'ring_intensity':ring_intensity,'zdisk':zdisk,'inc':inc,'PA':PA,'sigma':sigma,'nrings':nrings}
     velos = {'vphi':vphi,'vr':vr,'vz':vz,'dv':dv}
-    image_props = {'pixel_size':pixel_size,'npixels':npixels,'velocities':velocities,'beamsize':beamsize,'nchans':nchans}
+    image_props = {'pixel_size':pixel_size,'npixels':npixels,'velocities':velocities,'beamsize':beamsize,'nchans':nchans,'bmaj':bmaj,'bmin':bmin,'bpa':bpa}
 
     #image = make_model(rings,velos,image_props)
 
@@ -50,7 +53,6 @@ def quick_disk2(pixel_size = 0.05, npixels = 512, nchans = 15, chanwidth = 0.3, 
 
     print(image_log_like(params,file,r0,sigma,nrings,image_props))
 
-#Need a function that compare the model image and the data and returns a log-likelihood
 #Need a function that runs some sort of MCMC model with the inputs
 
 def image_log_like(params,data_filename,r0,sigma,nrings,image_props):
@@ -75,8 +77,11 @@ def image_log_like(params,data_filename,r0,sigma,nrings,image_props):
     image[np.isnan(image)] = 0.
     #Convolve the model image by the beam
     xm,ym = np.meshgrid(np.arange(image_props['npixels']),np.arange(image_props['npixels']))
-    gauss = np.exp(-(np.sqrt((xm-image_props['npixels']/2)**2+(ym-image_props['npixels']/2)**2.)/(5*image_props['beamsize']**2.)))
-    #This doesn't really seem to work.
+    xm2 = (xm-image_props['npixels']/2)*np.cos(image_props['bpa'])-(ym-image_props['npixels']/2)*np.sin(image_props['bpa'])+image_props['npixels']/2
+    ym2 = (xm-image_props['npixels']/2)*np.sin(image_props['bpa'])+(ym-image_props['npixels']/2)*np.cos(image_props['bpa'])+image_props['npixels']/2
+    sigma_bmaj = image_props['bmaj']/(2*np.sqrt(2*np.log(2)))/image_props['pixel_size']
+    sigma_bmin = image_props['bmin']/(2*np.sqrt(2*np.log(2)))/image_props['pixel_size']
+    gauss = np.exp(-((xm2-image_props['npixels']/2)**2./(2*sigma_bmaj**2.)+(ym2-image_props['npixels']/2)**2./(2*sigma_bmin**2.)))/(2*np.pi*sigma_bmaj*sigma_bmin)
     # And I feel like I could do this better (make gauss a 3d array?)
     for i in range(image_props['nchans']):
         image[i,:,:] = convolve(image[i,:,:],gauss,mode='same')
@@ -137,7 +142,6 @@ def image_log_like(params,data_filename,r0,sigma,nrings,image_props):
     plt.colorbar()
     plt.gca().set_aspect(1)
 
-    #need to convolve model by the beam before calculating the chi-squared
     print((np.isnan(data_image).sum()))
 
     chi = (data_image-image)**2./noise**2.
@@ -242,6 +246,7 @@ def make_model(rings,velos,image_props):
     pixel_size: arc-seconds
     chanwitdh: km/s
     beamsize: arc-seconds'''
+    #Is there a way to speed this up??
 
     x = (np.arange(image_props['npixels'])-image_props['npixels']/2)*image_props['pixel_size']
     y = (np.arange(image_props['npixels'])-image_props['npixels']/2)*image_props['pixel_size']
