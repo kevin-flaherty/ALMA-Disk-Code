@@ -247,6 +247,7 @@ def make_model(rings,velos,image_props):
     chanwitdh: km/s
     beamsize: arc-seconds'''
     #Is there a way to speed this up??
+    #New text that says things...
 
     x = (np.arange(image_props['npixels'])-image_props['npixels']/2)*image_props['pixel_size']
     y = (np.arange(image_props['npixels'])-image_props['npixels']/2)*image_props['pixel_size']
