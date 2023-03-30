@@ -1,3 +1,52 @@
+'''This code contains various functions that are helpful in visualizing ALMA continuum and line emission, as well as handling the results of MCMC trials.
+
+A typical workflow depends on the task:
+
+- Visualizing a model (e.g., spectra, channel maps, residuals)
+     Suppose you have a model image (alma.fits) that you want to compare with a cleaned image (mydata.fits) generated from your visibilities (mydata.vis.fits).
+     You can compare their spectra directly.
+     >> im_plot_spec('mydata.fits',color='k')
+     >> im_plot_spec('alma.fits',color='r',ls='--')
+
+     To do a more detailed comparison, you will want to generate model visibilities, and then create a cleaned image from the model visibilities.
+     >> write_model_vis('mydata.vis.fits','model.fits')
+     And then within CASA, created a cleaned model image (model.clean.fits). Back in python
+     >> im_plot_spec('mydata.fits',color='k')
+     >> im_plot_spec('model.clean.fits',color='r',ls='--',threshold=.05)
+     where threshold has been set to the value reported by the call to im_plot_spec for the data. This ensures the most direct comparison between data and model.
+
+     You can create a figure with channel maps
+     >> mk_chmaps('mydata.fits',channels=[5,10,15,20])
+     >> mk_chmaps('model.clean.fits',channels=[5,10,15,20])
+
+     You might also be interested in what the residuals look like. First you need to create differenced visibilities
+     >> write_diff_vis('mydata.vis.fits','model.fits')
+     And then within CASA, clean the differenced visibilities, created a cleaned imae of the residuals (model.clean.diff.fits). Back in python we can create a figure showing the data, cleaned model image, and residuals, all next to each other
+     >> imdiff('mydata.fits','model.clean.diff.fits',triplot=True,altlevels=True,channels=[5,10,15,20])
+
+- Handling MCMC trials (e.g., reading in walker positions, calculating autocorrelation time)
+    Suppose you have run an MCMC trial and have the results in a single file (myMCMC.csv). To analyze the results, you first want to read in the file.
+    >> chain = read_chain_steps('myMCMC.csv',nwalkers=50)
+
+    Next you might want to look at the paths of the individual walkers
+    >> plot_chains2(chain)
+
+    If everything looks good, you might want to calculate the acceptance fraction, and examine the autocorrelation time. When looking at the paths of the walkers, you noticed that burn in is about 1600 steps long, and so you decide to calculate the acceptance fraction over all the steps, and after step 1600.
+    >> np.mean(acceptance_fraction(chain['q']))
+    >> np.mean(acceptance_fraction(chain['q'][1600:,:]))
+    >> acor(chain['Tatm'])
+
+    You decide to create a corner plot so that you can examine the posterior distribution functions. You decided to exclude the pesky walkers with Rout>1000, since they haven't converged with the rest of the walkers
+    >> wuse = chain['Rout'][1600:,:]<1000
+    >> corner_plot(chain,start=1600,wuse=wuse)
+
+
+
+
+
+'''
+
+
 import numpy as np
 import matplotlib.pylab as plt
 from galario import double as gdouble
@@ -251,7 +300,7 @@ def mk_chmaps(datfile='imlup_co21.cm.fits',offs=[.0,0.],PA=144.6,incl=51.6,chann
     r2 = 0.9*imx*np.array([-1,1])/2.*np.cos(np.radians(incl))
     theta2 = np.radians(90.-np.array([PA,PA]))
 
-
+    plt.figure()
     if nchans > 1:
         ### The following code block handles plotting more than one channel.
         Ncols = 7
@@ -1091,7 +1140,7 @@ def write_model_vis(file,modfile,model_vis_file = 'alma.model.vis.fits'):
 
 def calc_noise(image,imx=10):
     '''Calculate the noise within an image. The noise is used in multiple functions (im_plot_spec, mk_chmaps, imdiff) and the calculation is moved here to make sure it is consistent between all of them
-    The noise is calculated in the area of the image that excludes an imx x imx size box at the center. 
+    The noise is calculated in the area of the image that excludes an imx x imx size box at the center.
 
     '''
     #assuming we are dealing with full image and not cropped images
