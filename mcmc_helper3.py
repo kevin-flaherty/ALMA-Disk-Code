@@ -853,14 +853,20 @@ def read_chain_steps(file,nwalkers=20):
     return chain_master
 
 def corner_plot(chain,start=0,wuse=[]):
-    '''Using the dictionary of steps, make a corner plot using the corner package. It only uses the walkers beyond the step number specified by 'start'
-    wuse helps pick out only some of the walkers.
+    '''Using the dictionary of steps, make a corner plot using the corner package, including contours at 1 and  3 sigma.
 
-    To exclude 'stragglers', or that one walker that hasn't converged with the rest of them:
+
+    chain (dictionary): A dictionary containing the steps for each walker for each parameters. The keys for the dictionary correspond to the parameters of the model, plus the log-likelihood. Each key contains a 2-dimensional array, with shape Nsteps x Nwalkers. The function read_chain_steps returns a dictionary with this format.
+
+    start (int): The starting step number. Steps beyond this number are used to create the corner plot. This allows the user to skip burn-in. Default = 0
+
+    wuse (boolean array): A boolean array with a shape matching that of the arrays within the dictionary, including an exclusion of steps at the beginning of the chains. This is useful when you want to exclude walkers that haven't converged towards the best fit.
+    Example:
     >> wuse = chain['Tatm'][400:,:]<100
     >> corner_plot(chain,start=400,wuse)
+    This will only use walkers with Tatm less than 100.
 
-    Contours at 1 and 3 sigma.
+
     '''
 
     import corner
@@ -874,19 +880,11 @@ def corner_plot(chain,start=0,wuse=[]):
         chain_new = np.zeros((nwalkers*(nsteps-start),ndim))
     for i,n in enumerate(names):
         if len(wuse)>0:
-            #print('-'*10)
-            #print(chain_new[:,i].shape)
-            #print(chain[n].shape)
-            #print(chain[n][start:,:].shape)
-            #print(chain[n][start:,:].flatten().shape)
-            #print(wuse.shape)
-            #print('-'*10)
             chain_new[:,i] = (chain[n][start:,:][wuse]).flatten()
         else:
             chain_new[:,i] = chain[n][start:,:].flatten()
-        #print(i,n, chain[n][start:,:].flatten().shape,chain_new[:,i].shape)
 
-    figure = corner.corner(chain_new,labels=names,quantiles=[.0015,.5,.9985],verbose=True,levels=(1-np.exp(-0.5),1-np.exp(-9./2)))#,1-np.exp(-25./2)))
+    figure = corner.corner(chain_new,labels=names,quantiles=[.0015,.5,.9985],verbose=True,levels=(1-np.exp(-0.5),1-np.exp(-9./2)))
 
 def plot_chains(chain,values=None,names=['q','Rc','vturb/cCO','Tatm','Tmid','incl','gain']):
     '''Plot the positions of the walkers as a function of step number. Used with the output from mpi_run_models_local.py, as read in by read_chain'''
@@ -915,7 +913,13 @@ def plot_chains(chain,values=None,names=['q','Rc','vturb/cCO','Tatm','Tmid','inc
             plt.plot((500,500),(med[i]-lunc[i],med[i]+uunc[i]),color='b',lw=2)
 
 def plot_chains2(chain,labels=None):
-    '''Plot the progression of the walkers. Uses the chain that is formated as a dictionary (from mpi_run_models_steps.py and read_chain_steps).'''
+    '''Plot the progression of each walker, for each parameter. This function creates a multi-panel plot, with each panel corresponding to a different parameter. Within each panel, lines of different colors show the movement of individual walkers. The solid red line is the median position of the walkers at each step.
+
+    chain (dictionary): A dictionary containing the steps for each walker for each parameters. The keys for the dictionary correspond to the parameters of the model, plus the log-likelihood. Each key contains a 2-dimensional array, with shape Nsteps x Nwalkers. The function read_chain_steps returns a dictionary with this format.
+
+    labels (list of strings): The labels to apply to each panel. If None, which is the default, then the code will use the dictionary keys as the labels.
+
+    '''
     #to change the names of the keys: chain[new_key]=chain.pop(old_key)
     from math import ceil
 
@@ -935,11 +939,19 @@ def plot_chains2(chain,labels=None):
 
 
 def acceptance_fraction(chain):
-    '''Return acceptance fraction for the motion of nwalkers for one parameters. Array should have dimensions nwalkers*nsteps.
-    Adjusted to work with the new format of the chain array (read in by read_chain_steps)
-    To call this function
-    >> np.mean(acceptance_fraction(chain['q'][n:,:]))
-    n is the starting step number. If you want to examine the acceptance fraction after step 400, then set n=400. Otherwise n can be left out. This will calculate the average acceptance fraction over all walkers.
+    '''Return the acceptance fraction for the motion of nwalkers for one parameter. The acceptance fraction is the fraction of proposed new moves that are accepted, and is detected by looking at how often the value of the parameter at step N differs from the value at N-1. Returns an array with the acceptance fraction of each walker, which can be averaged to get the average acceptance fraction.
+
+
+    chain (Nsteps x Nwalkers array): An array of parameter values, with dimensions Nsteps x Nwalkers.
+
+    Example:
+    >> chain = read_chain_steps('myMCMC.csv',nwalkers=50)
+    >> np.mean(acceptance_fraction(chain['q']))
+    This returns the average acceptance fraction over all steps and across all walkers.
+
+    >> chain = read_chain_steps('myMCMC.csv',nwalkers=50)
+    >> np.mean(acceptance_fraction(chain['q'][400:,:]))
+    This returns the average acceptance fraction for step 400 and higher, and averages across all walkers. This form is useful if you want to skip burn-in.
     '''
 
     nsteps = chain.shape[0]
@@ -953,36 +965,41 @@ def acceptance_fraction(chain):
     return naccepted/nsteps
 
 
-def acor(chain):
-    '''Calculate the average integrated autocorrelation time as a function of step number. Assumes the chain format as read in when the results are written out in steps
+def acor(chain,index=0):
+    '''Calculate the average integrated autocorrelation time as a function of step number. The result is a figure where the colored lines are the integrated auto-correlation time as a function of step number for each walker. The dashed line is the average integrated auto-correlation time as a function of step number. The dotted line is the average integrated auto-correlation time at the very last step. The chains should be much longer than the auto-correlation time. If not then the chains have not properly converged.
 
-    The result is a figure where the colored lines are the integrated auto-correlation time as a function of step number for each walker. The dashed line is the average integrated auto-correlation time as a function of step number. The dotted line is the average integrated auto-correlation time at the very last step. The chains should be much longer than the auto-correlation time. If not then the chains have not properly converged.
+    chain (dictionary): A dictionary containing the steps for each walker for each parameters. The keys for the dictionary correspond to the parameters of the model, plus the log-likelihood. Each key contains a 2-dimensional array, with shape Nsteps x Nwalkers. The function read_chain_steps returns a dictionary with this format.
 
-    To call this function:
-    >> acor(chain)
-    where chain is the variable returned by read_chain_steps.
+    index (int): The index of the parameter in chain to use when calculating the auto-correlation time. Each parameter can have a different auto-correlation time.
+
+    Example:
+    >> chain = read_chain_steps('myMCMC.csv')
+    >> acor(chain,index=5)
     '''
     from emcee.autocorr import integrated_time
 
     names = list(chain.keys())
-    nwalkers = chain[names[0]].shape[1]
-    nsteps = chain[names[0]].shape[0]
+    nwalkers = chain[names[index]].shape[1]
+    nsteps = chain[names[index]].shape[0]
     tau = np.empty((nsteps-10,nwalkers))
     for j in range(nwalkers):
         for i in range(10,nsteps):
             tau[i-10,j]=integrated_time(chain[names[0]][:i,j],quiet=True,tol=1)
+        tau[:,j][np.isnan(tau[:,j])] = 1
         plt.plot(tau[:,j],alpha=.5)
     plt.plot(tau.mean(axis=1),color='k',ls='--',lw=2)
     plt.axhline(np.mean(tau[-1,:]),color='k',ls=':',lw=2)
 
 def write_diff_vis(file,modfile,diff_file='alma.diff.vis.fits'):
-    '''Difference the visibilities using Galario and save the difference (for generating imaged residuals). The code reads in the data visibility file and the model image, creates model visibilities at the baselines specified in the data file, and then differences the two (data - model) and puts the differenced visibilities in a new file.
+    '''Difference the visibilities using Galario and save the differenceced visibilities. The differenced visibilities can then be cleaned to create residuals. The code reads in the data visibility file and the model image, creates model visibilities at the baselines specified in the data file, and then differences the two (data - model) and puts the differenced visibilities in a new file.
 
-    file (string): Data visibility fits file, ex. 'imlup_co21.vis.fits'
+    file (string): Data visibility fits file, *not* the cleaned image from the data. ex. 'imlup_co21.vis.fits'
 
     modfile (string): Model image file, ex. 'alma.fits'
 
     diff_file (string): Name of the file containing the differenced visibilities. Default = 'alma.diff.vis.fits'
+
+    The output is a file with name diff_file which is a visibility fits file that contains the differenced visibilities.
 
     '''
     gdouble.threads(1)
@@ -1029,7 +1046,7 @@ def write_diff_vis(file,modfile,diff_file='alma.diff.vis.fits'):
 def write_model_vis(file,modfile,model_vis_file = 'alma.model.vis.fits'):
     '''Use galario and the model image to generate model visibilities, which are then written to a file. The code reads in the data visibility file and the model image, creates model visibilities at the baselines specified in the data file, and puts the model visibilities in a new file.
 
-    file (string): Data visibility fits file, ex. 'imlup_co21.vis.fits'
+    file (string): Data visibility fits file, *not* the cleaned image from the data. ex. 'imlup_co21.vis.fits'
 
     modfile (string): Model image file, ex. 'alma.fits'
 
@@ -1073,7 +1090,10 @@ def write_model_vis(file,modfile,model_vis_file = 'alma.model.vis.fits'):
 
 
 def calc_noise(image,imx=10):
-    '''Calculate the noise within an image. The noise is used in multiple functions (im_plot_spec, mk_chmaps, imdiff) and the calculation is moved here to make sure it is consistent between all of them'''
+    '''Calculate the noise within an image. The noise is used in multiple functions (im_plot_spec, mk_chmaps, imdiff) and the calculation is moved here to make sure it is consistent between all of them
+    The noise is calculated in the area of the image that excludes an imx x imx size box at the center. 
+
+    '''
     #assuming we are dealing with full image and not cropped images
     #imx is width of box in pixels. This box is used to define noise.
 
