@@ -1099,7 +1099,7 @@ def write_model_vis(file,modfile,model_vis_file = 'alma.model.vis.fits'):
 
     modfile (string): Model image file, ex. 'alma.fits'
 
-    model_vis_file (string): Name of the file containing the model visibilities. Default = 'alma.model.vis.fits''''
+    model_vis_file (string): Name of the file containing the model visibilities. Default = 'alma.model.vis.fits' '''
 
     gdouble.threads(1)
 
@@ -1161,11 +1161,11 @@ def calc_noise(image,imx=10):
         if npix/2-3*imx/2 <0:
             low = 0
         else:
-            low = npix/2-3*imx/2
+            low = int(npix/2-3*imx/2)
         if npix/2+3*imx/2>npix:
             high = -1
         else:
-            high = npix/2+3*imx/2
+            high = int(npix/2+3*imx/2)
 
         for i in range(nfreq):
             noise1[i] = np.std(image[i,low:npix//2-imx//2,low:npix//2-imx//2])
@@ -1185,22 +1185,136 @@ def calc_noise(image,imx=10):
         return np.mean([noise1,noise2,noise3,noise4])
     else:
         imx=int(np.abs(imx))
-        npix = image.shape[1]
+        npix = int(image.shape[1])
 
         if npix/2-3*imx/2 <0:
             low = 0
         else:
-            low = npix/2-3*imx/2
+            low = int(npix/2-3*imx/2)
         if npix/2+3*imx/2>npix:
             high = -1
         else:
-            high = npix/2+3*imx/2
+            high = int(npix/2+3*imx/2)
 
         noise1 = np.std(image[low:npix//2-imx//2,low:npix//2-imx//2])
-        noise2 = np.std(image[low:npix//2-imx//2,npix/2+imx//2:high])
+        noise2 = np.std(image[low:npix//2-imx//2,npix//2+imx//2:high])
         noise3 = np.std(image[npix//2+imx//2:high,low:npix//2-imx//2])
         noise4 = np.std(image[npix//2+imx//2:high,npix//2+imx//2:high])
         noise5 = np.std(image[low:high,low:high])
         #print(noise1,noise2,noise3,noise4,noise5)
         return np.mean([noise1,noise2,noise3,noise4])
         #return noise5
+
+def plot_continuum(file,distance=122.,size=4.,offs=[0.,0.]):
+    '''Plot the continuum image.
+
+    file (string): The name of the continuum fits image.
+
+    distance (float): Distance to the object, in parsecs. This is used in creating the scale bar.
+
+    size (float): Size of the image, in arc-seconds.
+
+    offs (2-element list of floats): Offset from the center of the emission.
+
+
+    '''
+
+    cont_im = fits.open(file)
+    cont = cont_im[0].data.squeeze()
+    hdr = cont_im[0].header
+    ra = 3600*hdr['cdelt1']*(np.arange(hdr['naxis1'])-hdr['naxis1']/2.-0.5)
+
+    # Crop image
+    imx = size
+    noise = calc_noise(cont,np.round(imx/(3600.*hdr['cdelt1'])))
+    de = -1*ra
+    ra = ra-offs[0]
+    de = de-offs[0]
+    ira = np.abs(ra) < imx/2.
+    ide = np.abs(de) < imx/2.
+    cont = cont[:,ira]
+    cont = cont[ide,:]
+    ra = ra[ira]
+    de = de[ira]
+
+    #Beam size
+    try:
+        bmaj,bmin,bpa = hdr['bmaj'],hdr['bmin'],hdr['bpa']
+    except KeyError:
+        bmaj,bmin,bpa = cont_im[1].data[0][0]/3600.,cont_im[1].data[0][1]/3600.,cont_im[1].data[0][1]
+    a,b,phi = hdr['bmaj']/2.*3600,hdr['bmin']/2.*3600,np.radians(90+hdr['bpa'])
+    t = np.linspace(0,2*np.pi,100)
+    x = -imx/2.+a*np.cos(t)*np.cos(phi)-b*np.sin(t)*np.sin(phi)
+    y = -imx/2.+a*np.cos(t)*np.sin(phi)+b*np.sin(t)*np.cos(phi)
+
+    nlevels = 100
+    cont_levels = np.arange(nlevels+1)*(cont.max()-cont.min())/nlevels+cont.min()
+
+    ax = plt.figure()
+    cs = plt.contourf(ra,de,cont,cont_levels,cmap=plt.cm.Oranges)
+    cs2 = plt.contour(ra,de,cont,[5*noise,],colors='w',linestyles=':',linewidths=.5)
+    plt.xlabel(r'$\Delta\alpha$ (")',fontsize=18)
+    plt.ylabel('$\Delta\delta$ (")',fontsize=18)
+    plt.plot(x+1,y+1,lw=2) # beam
+    plt.plot((imx/2.-1.5,imx/2.-1.5+100./distance),(-imx/2.+1,-imx/2+1),lw=3,color='k') #100 AU scale bar
+    cb = plt.colorbar(cs,label='Jy/bm',pad=0.,shrink=.9,format='%1.2f')
+    cb.ax.tick_params(labelsize=7)
+    ax = plt.gca()
+    ax.set_aspect('equal')
+    for tick in ax.xaxis.get_major_ticks():
+        tick.label.set_fontsize(18)
+    for tick in ax.yaxis.get_major_ticks():
+        tick.label.set_fontsize(18)
+    plt.gca().invert_xaxis()
+
+def plot_mom0(file,distance=122.,size=8.):
+    '''Plot the moment 0 map.
+
+    file (string): Name of the moment 0 map fits file.
+
+    distance (float): Distance to the source, in parsecs. This is used in creating the 100 au scale bar.
+
+    size (float): Size of the image, e.g. if size=8 then an 8" by 8" image is created.
+
+    '''
+
+    co_mom0 = fits.open(file)
+    co_data = co_mom0[0].data.squeeze()
+    hdr = co_mom0[0].header
+    ra = 3600*hdr['cdelt1']*(np.arange(hdr['naxis1'])-hdr['naxis1']/2.-0.5)
+
+    #Crop image
+    imx = size
+    #co_data*=1e3 #convert from Jy km/s to mJy km/s
+    noise = calc_noise(co_data,np.round(imx/(3600.*hdr['cdelt1'])))
+    print('Noise: {:0.3f} Jy/bm km/s'.format(noise))
+    de = -1*ra
+    ra = ra
+    de = de
+    ira = np.abs(ra) < imx/2.
+    ide = np.abs(de) < imx/2.
+    co_data = co_data[:,ira]
+    co_data = co_data[ide,:]
+    ra = ra[ira]
+    de = de[ide]
+
+    #Beam size
+    a,b,phi = hdr['bmaj']/2.*3600,hdr['bmin']/2.*3600,np.radians(hdr['bpa'])
+    t = np.linspace(0,2*np.pi,100)
+    x = -imx/2.+a*np.cos(t)*np.cos(phi)-b*np.sin(t)*np.sin(phi)
+    y = -imx/2.+a*np.cos(t)*np.sin(phi)+b*np.sin(t)*np.cos(phi)
+
+    nlevels = 100
+    levels = np.arange(nlevels+1)*(co_data.max()-co_data.min())/nlevels+co_data.min()
+
+    ax = plt.figure()
+    cs = plt.contourf(ra,de,co_data,levels,cmap=plt.cm.Oranges)
+    cs2 = plt.contour(ra,de,co_data,[3*noise,5*noise,10*noise,20*noise],colors='w',linestyles=':',linewidths=.5)
+    plt.xlabel(r'$\Delta\alpha$ (")',fontsize=18)
+    plt.ylabel('$\Delta\delta$ (")',fontsize=18)
+    plt.plot(x+1.,y+1.,color='w') #beam
+    plt.plot([imx/2.-1.5,imx/2.-1.5+100./distance],[-imx/2.+1,-imx/2.+1],color='w') #50 au scale bar
+    plt.colorbar(cs,label='Jy km/s',pad=0.,shrink=.9,format='%0.1f')
+    ax = plt.gca()
+    ax.set_aspect('equal')
+    plt.gca().invert_xaxis()
