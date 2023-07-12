@@ -92,6 +92,7 @@ def im_plot_spec(file='data/HD163296.CO32.regridded.cen15.cm.fits',size=10,fwhm=
     data = im[0].data.squeeze()
     hdr = im[0].header
     #noise = np.std(data[:,:,:10])
+
     noise = calc_noise(data,np.round(size/(3600.*hdr['cdelt1'])))
     ra = 3600*hdr['cdelt1']*(np.arange(hdr['naxis1'])-hdr['naxis1']/2.-0.5)
     dec = 3600*hdr['cdelt2']*(np.arange(hdr['naxis2'])-hdr['naxis2']/2.-0.5)
