@@ -247,13 +247,17 @@ def mk_chmaps(datfile='imlup_co21.cm.fits',offs=[.0,0.],PA=144.6,incl=51.6,chann
 
     try:
         bmaj,bmin,bpa = hdr['bmaj'],hdr['bmin'],hdr['bpa']
-    except KeyError:
-        bmaj,bmin,bpa = cube[1].data[0][0]/3600.,cube[1].data[0][1]/3600.,cube[1].data[0][1]
-    if hdr['object'][:5] == 'model':
+        if hdr['object'][:5] == 'model':
     # Model fluxes are in units of flux per pixel. Convert this to flux per beam
-        beam=np.pi*bmaj*bmin/(4*np.log(2))
-        pix = np.abs(hdr['cdelt1'])*np.abs(hdr['cdelt2'])
-        image *= beam/pix
+            beam=np.pi*bmaj*bmin/(4*np.log(2))
+            pix = np.abs(hdr['cdelt1'])*np.abs(hdr['cdelt2'])
+            image *= beam/pix
+    except KeyError:
+        if hdr['object'][:5] == 'model':
+            bmaj,bmin,bpa = hdr['cdelt1'],hdr['cdelt2'],0
+        else:
+            bmaj,bmin,bpa = cube[1].data[0][0]/3600.,cube[1].data[0][1]/3600.,cube[1].data[0][1]
+    
 
     #Beam size
     a,b,phi = bmaj/2*3600.,bmin/2*3600.,np.radians(bpa)
@@ -281,18 +285,20 @@ def mk_chmaps(datfile='imlup_co21.cm.fits',offs=[.0,0.],PA=144.6,incl=51.6,chann
             velo = (np.median(freq)-freq)/np.median(freq)*2.99e5
 
     # - Make figure
-    nlevels = (np.max(image)-10*noise)/(10*noise)
-    #print('Initial number of levels: ',nlevels)
-    if nlevels > 5:
-        #If the peak flux is >50 sigma, then use contours in multiples of 10 sigma
-        levels = (np.arange(nlevels)+1)*10*noise
-    else:
-        #If the peak flux is <50 sigma, then use contours in multiples of 5 sigma
-        nlevels = (np.max(image)-5*noise)/(5*noise)
-        levels = (np.arange(nlevels)+1)*5*noise
     if altlevels:
         #40 levels evenly distributed from min to max flux
         levels = (np.arange(40))/40.*(np.max(image)-np.min(image))+np.min(image)
+    else:
+        nlevels = (np.max(image)-10*noise)/(10*noise)
+        #print('Initial number of levels: ',nlevels)
+        if nlevels > 5:
+            #If the peak flux is >50 sigma, then use contours in multiples of 10 sigma
+            levels = (np.arange(nlevels)+1)*10*noise
+        else:
+            #If the peak flux is <50 sigma, then use contours in multiples of 5 sigma
+            nlevels = (np.max(image)-5*noise)/(5*noise)
+            levels = (np.arange(nlevels)+1)*5*noise
+
 
     print('Min level, noise:',levels.min(),noise)
 
@@ -306,7 +312,7 @@ def mk_chmaps(datfile='imlup_co21.cm.fits',offs=[.0,0.],PA=144.6,incl=51.6,chann
         ### The following code block handles plotting more than one channel.
         Ncols = 7
         fig=plt.figure()
-        nrows = (nchans-1)/Ncols+1
+        nrows = int((nchans-1)/Ncols+1)
         if nchans >Ncols:
             ncols = Ncols
         else:
@@ -322,13 +328,13 @@ def mk_chmaps(datfile='imlup_co21.cm.fits',offs=[.0,0.],PA=144.6,incl=51.6,chann
             cs = plt.contourf(ra,de,image[channels[i],:,:],levels,cmap=plt.cm.afmhot)#plt.cm.YlOrRd Greys afmhot (ie ALMA color-scheme)
             if altlevels:
                 ## If the smooth contours of altlevels are used, then add a 3 sigma contour in white.
-                plt.contour(ra,de,image[channels[i],:,:],[3*noise,],colors='w',linewidths=2,linestyles='--')
+                plt.contour(ra,de,image[channels[i],:,:],[3*noise,],colors='w',linewidths=1,linestyles='--')
             if i==0:
                 plt.gca().invert_xaxis()
             #plt.plot(x_ice,y_ice,'k',ls='--',alpha=.5,lw=2)
             if mirror:
-                plt.contour(ra2,de2,image[channels[i],::-1,::-1]-image2[:,:,channels[i]],levels,colors='k',linewidths=2,alpha=0.7)
-                plt.contour(ra2,de2,image[channels[i],::-1,::-1]-image2[:,:,channels[i]],-levels[::-1],colors='r',linewidths=2,alpha=0.7)
+                plt.contour(ra,de,image[channels[i],::-1,::-1]-image[nchans-channels[i],:,:],levels,colors='w',linewidths=2,alpha=0.7)
+                plt.contour(ra,de,image[channels[i],::-1,::-1]-image[nchans-channels[i],:,:],-levels[::-1],colors='r',linewidths=2,alpha=0.7)
             plt.subplots_adjust(wspace=0.)
             plt.subplots_adjust(hspace=0.)
             plt.text(plt.xlim()[0]*.85,plt.ylim()[1]*.72,'{:.2f}'.format(velo[channels[i]]),fontsize=13,color='w')
