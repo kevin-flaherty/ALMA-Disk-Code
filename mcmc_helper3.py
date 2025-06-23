@@ -9,7 +9,7 @@ A typical workflow depends on the task:
      >> im_plot_spec('alma.fits',color='r',ls='--')
 
      To do a more detailed comparison, you will want to generate model visibilities, and then create a cleaned image from the model visibilities.
-     >> write_model_vis('mydata.vis.fits','model.fits')
+     >> write_model_vis_sample('mydata.vis.fits','model.fits')
      And then within CASA, created a cleaned model image (model.clean.fits). Back in python
      >> im_plot_spec('mydata.fits',color='k')
      >> im_plot_spec('model.clean.fits',color='r',ls='--',threshold=.05)
@@ -20,7 +20,7 @@ A typical workflow depends on the task:
      >> mk_chmaps('model.clean.fits',channels=[5,10,15,20])
 
      You might also be interested in what the residuals look like. First you need to create differenced visibilities
-     >> write_diff_vis('mydata.vis.fits','model.fits')
+     >> write_diff_vis_sample('mydata.vis.fits','model.fits')
      And then within CASA, clean the differenced visibilities, created a cleaned imae of the residuals (model.clean.diff.fits). Back in python we can create a figure showing the data, cleaned model image, and residuals, all next to each other
      >> imdiff('mydata.fits','model.clean.diff.fits',triplot=True,altlevels=True,channels=[5,10,15,20])
 
@@ -49,7 +49,8 @@ A typical workflow depends on the task:
 
 import numpy as np
 import matplotlib.pylab as plt
-from galario import double as gdouble
+#from galario import double as gdouble
+from vis_sample import vis_sample
 from astropy.io import fits
 import os
 
@@ -1046,8 +1047,10 @@ def acor(chain,index=0):
     plt.plot(tau.mean(axis=1),color='k',ls='--',lw=2)
     plt.axhline(np.mean(tau[-1,:]),color='k',ls=':',lw=2)
 
-def write_diff_vis(file,modfile,diff_file='alma.diff.vis.fits'):
-    '''Difference the visibilities using Galario and save the differenceced visibilities. The differenced visibilities can then be cleaned to create residuals. The code reads in the data visibility file and the model image, creates model visibilities at the baselines specified in the data file, and then differences the two (data - model) and puts the differenced visibilities in a new file.
+def write_diff_vis_sample(file,modfile,diff_file='alma.diff.vis.fits'):
+    '''Difference the visibilities using vis_sample and save the differenceced visibilities. The differenced visibilities can then be cleaned to create residuals. The code reads in the data visibility file and the model image, creates model visibilities at the baselines specified in the data file, and then differences the two (data - model) and puts the differenced visibilities in a new file.
+
+    NOTE: This function assumes that the model channel maps are at the same frequencies as the data. It does not interpolate between the two.
 
     file (string): Data visibility fits file, *not* the cleaned image from the data. ex. 'imlup_co21.vis.fits'
 
@@ -1058,33 +1061,19 @@ def write_diff_vis(file,modfile,diff_file='alma.diff.vis.fits'):
     The output is a file with name diff_file which is a visibility fits file that contains the differenced visibilities.
 
     '''
-    gdouble.threads(1)
-
     im = fits.open(file)
     hdr = im[0].header
     data = im[0].data
-    u,v = data['UU'].astype(np.float64),data['VV'].astype(np.float64)
-    freq0 = hdr['crval4']
     vis = (data.data).squeeze()
 
-    #Assume that we are dealing with spectral lines.
+    #Assume that we are dealing with a spectral line
     real_obj = (vis[:,:,0,0]+vis[:,:,1,0])/2.
     imag_obj = (vis[:,:,0,1]+vis[:,:,1,1])/2.
 
-    u*=freq0
-    v*=freq0
-
     #Generate model visibilities
-    model_fits = fits.open(modfile)
-    model = model_fits[0].data.squeeze()
-    nxy,dxy = model_fits[0].header['naxis1'],np.radians(np.abs(model_fits[0].header['cdelt1']))
-    model_fits.close()
-    real_model = np.zeros(real_obj.shape)
-    imag_model = np.zeros(imag_obj.shape)
-    for i in range(real_obj.shape[1]):
-        vis = gdouble.sampleImage(np.flipud(model[i,:,:]).byteswap().newbyteorder(),dxy,u,v)
-        real_model[:,i] = vis.real
-        imag_model[:,i] = vis.imag
+    model_vis = vis_sample(uvfile=file,imagefile=modfile,mod_interp=False)
+    real_model = model_vis.real
+    imag_model = model_vis.imag
 
     real_diff = real_obj - real_model
     imag_diff = imag_obj - imag_model
@@ -1099,50 +1088,117 @@ def write_diff_vis(file,modfile,diff_file='alma.diff.vis.fits'):
     im.close()
 
 
-def write_model_vis(file,modfile,model_vis_file = 'alma.model.vis.fits'):
-    '''Use galario and the model image to generate model visibilities, which are then written to a file. The code reads in the data visibility file and the model image, creates model visibilities at the baselines specified in the data file, and puts the model visibilities in a new file.
+#def write_diff_vis(file,modfile,diff_file='alma.diff.vis.fits'):
+#    '''Difference the visibilities using Galario and save the differenceced visibilities. The differenced visibilities can then be cleaned to create residuals. The code reads in the data visibility file and the model image, creates model visibilities at the baselines specified in the data file, and then differences the two (data - model) and puts the differenced visibilities in a new file.
 
-    file (string): Data visibility fits file, *not* the cleaned image from the data. ex. 'imlup_co21.vis.fits'
+#    file (string): Data visibility fits file, *not* the cleaned image from the data. ex. 'imlup_co21.vis.fits'
 
-    modfile (string): Model image file, ex. 'alma.fits'
+#    modfile (string): Model image file, ex. 'alma.fits'
 
-    model_vis_file (string): Name of the file containing the model visibilities. Default = 'alma.model.vis.fits' '''
+#    diff_file (string): Name of the file containing the differenced visibilities. Default = 'alma.diff.vis.fits'
 
-    gdouble.threads(1)
+#    The output is a file with name diff_file which is a visibility fits file that contains the differenced visibilities.
 
-    im=fits.open(file)
-    hdr = im[0].header
-    data = im[0].data
-    u,v = data['UU'].astype(np.float64),data['VV'].astype(np.float64)
-    freq0 = hdr['crval4']
-    vis = (data.data).squeeze()
-    u*=freq0
-    v*=freq0
+#    '''
+#    gdouble.threads(1)
 
-    real_obj = (vis[:,:,0,0]+vis[:,:,1,0])/2.
-    imag_obj = (vis[:,:,0,1]+vis[:,:,1,0])/2.
+#    im = fits.open(file)
+#    hdr = im[0].header
+#    data = im[0].data
+#    u,v = data['UU'].astype(np.float64),data['VV'].astype(np.float64)
+#    freq0 = hdr['crval4']
+#    vis = (data.data).squeeze()
+
+    #Assume that we are dealing with spectral lines.
+#    real_obj = (vis[:,:,0,0]+vis[:,:,1,0])/2.
+#    imag_obj = (vis[:,:,0,1]+vis[:,:,1,1])/2.
+
+#    u*=freq0
+#    v*=freq0
 
     #Generate model visibilities
-    model_fits = fits.open(modfile)
-    model = model_fits[0].data.squeeze()
-    hdr_model = model_fits[0].header
-    nxy,dxy = model_fits[0].header['naxis1'],np.radians(np.abs(model_fits[0].header['cdelt1']))
-    model_fits.close()
-    real_model = np.zeros(real_obj.shape)
-    imag_model = np.zeros(imag_obj.shape)
-    for i in range(real_obj.shape[1]):
-        vis = gdouble.sampleImage(np.flipud(model[i,:,:]).byteswap().newbyteorder(),dxy,u,v)
-        real_model[:,i] = vis.real
-        imag_model[:,i] = vis.imag
+#    model_fits = fits.open(modfile)
+#    model = model_fits[0].data.squeeze()
+#    nxy,dxy = model_fits[0].header['naxis1'],np.radians(np.abs(model_fits[0].header['cdelt1']))
+#    model_fits.close()
+#    real_model = np.zeros(real_obj.shape)
+#    imag_model = np.zeros(imag_obj.shape)
+#    for i in range(real_obj.shape[1]):
+#        vis = gdouble.sampleImage(np.flipud(model[i,:,:]).byteswap().newbyteorder(),dxy,u,v)
+#        real_model[:,i] = vis.real
+#        imag_model[:,i] = vis.imag
 
-    model_vis = data
-    model_vis['data'][:,0,0,0,:,0,0] = real_model
-    model_vis['data'][:,0,0,0,:,1,0] = real_model
-    model_vis['data'][:,0,0,0,:,0,1] = imag_model
-    model_vis['data'][:,0,0,0,:,1,1] = imag_model
-    im[0].data=model_vis
-    im.writeto(model_vis_file,overwrite=True)
-    im.close()
+#    real_diff = real_obj - real_model
+#    imag_diff = imag_obj - imag_model
+
+#    data_diff = data
+#    data_diff['data'][:,0,0,0,:,0,0] = real_diff
+#    data_diff['data'][:,0,0,0,:,1,0] = real_diff
+#    data_diff['data'][:,0,0,0,:,0,1] = imag_diff
+#    data_diff['data'][:,0,0,0,:,1,1] = imag_diff
+#    im[0].data = data_diff
+#    im.writeto(diff_file,overwrite=True)
+#    im.close()
+
+def write_model_vis_sample(file,modefile,model_vis_file='alma.model.vis.fits'):
+    '''Use vis_sample and the model image to generate model visibilities, which are then written to a file. The code reads in the data visibility file and the model image, creates model visibilities at the baselines specified in the data file, and puts the model visibilities in a new file. 
+    
+    NOTE:This function assumes that the model channel maps are at the same frequencies as the data. It does not interpolate between the two. 
+    
+    file (string): Data visibility fits file, *not* the cleaned image from the data. ex. 'imlup_co21.vis.fits' 
+    
+    modfile (string): Model image file, ex. 'alma.fits'
+
+    model_vis_file (string): Name of the file containing the model visibilities. Default = 'alma.model.vis.fits'
+    '''
+
+    os.system('rm -rf '+model_vis_file)
+    vis_sample(imagefile=modefile,uvfile=file,outfile=model_vis_file,mod_interp=False)
+
+#def write_model_vis(file,modfile,model_vis_file = 'alma.model.vis.fits'):
+#    '''Use galario and the model image to generate model visibilities, which are then written to a file. The code reads in the data visibility file and the model image, creates model visibilities at the baselines specified in the data file, and puts the model visibilities in a new file.
+
+#    file (string): Data visibility fits file, *not* the cleaned image from the data. ex. 'imlup_co21.vis.fits'
+
+#    modfile (string): Model image file, ex. 'alma.fits'
+
+#    model_vis_file (string): Name of the file containing the model visibilities. Default = 'alma.model.vis.fits' '''
+
+#    gdouble.threads(1)
+
+#    im=fits.open(file)
+#    hdr = im[0].header
+#    data = im[0].data
+#    u,v = data['UU'].astype(np.float64),data['VV'].astype(np.float64)
+#    freq0 = hdr['crval4']
+#    vis = (data.data).squeeze()
+#    u*=freq0
+#    v*=freq0
+
+#    real_obj = (vis[:,:,0,0]+vis[:,:,1,0])/2.
+#    imag_obj = (vis[:,:,0,1]+vis[:,:,1,0])/2.
+
+    #Generate model visibilities
+#    model_fits = fits.open(modfile)
+#    model = model_fits[0].data.squeeze()
+#    hdr_model = model_fits[0].header
+#    nxy,dxy = model_fits[0].header['naxis1'],np.radians(np.abs(model_fits[0].header['cdelt1']))
+#    model_fits.close()
+#    real_model = np.zeros(real_obj.shape)
+#    imag_model = np.zeros(imag_obj.shape)
+#    for i in range(real_obj.shape[1]):
+#        vis = gdouble.sampleImage(np.flipud(model[i,:,:]).byteswap().newbyteorder(),dxy,u,v)
+#        real_model[:,i] = vis.real
+#        imag_model[:,i] = vis.imag
+
+#    model_vis = data
+#    model_vis['data'][:,0,0,0,:,0,0] = real_model
+#    model_vis['data'][:,0,0,0,:,1,0] = real_model
+#    model_vis['data'][:,0,0,0,:,0,1] = imag_model
+#    model_vis['data'][:,0,0,0,:,1,1] = imag_model
+#    im[0].data=model_vis
+#    im.writeto(model_vis_file,overwrite=True)
+#    im.close()
 
 
 def calc_noise(image,imx=10):
