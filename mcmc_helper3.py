@@ -141,20 +141,24 @@ def im_plot_spec(file='data/HD163296.CO32.regridded.cen15.cm.fits',size=10,fwhm=
     #im_dec = data.sum(axis=2)
     #spec = im_dec.sum(axis=1)/area
     spec = np.zeros(hdr['naxis3'])
+    noise_spec = np.zeros(len(hdr['naxis3']))
     if threshold is None:
         threshold = 3*noise
     print('threshold: ',threshold)
     for i in range(hdr['naxis3']):
         bright = data[i,:,:]>threshold
         spec[i] = data[i,:,:][bright].sum()/area
+        noise_spec[i] = noise*np.sqrt(bright.sum()/area)
 
     if norm_peak:
         spec = spec/spec.max()
+        noise_spec = noise_spec/noise_spec.max()
     if mirror:
         xaxis = xaxis[::-1]#-.25#-.1
 
     plt.rc('axes',lw=2)
-    plt.plot(xaxis,spec,lw=4,**kwargs)
+    plt.plot(xaxis,spec,**kwargs)
+    plt.fill_between(xaxis,spec+noise_spec,spec-noise_spec,alpha=.3,color='k')
     ax = plt.gca() #apply_aspect,set_adjustable,set_aspect,get_adjustable,get_aspect
     for tick in ax.xaxis.get_major_ticks():
         tick.label1.set_fontsize(14)
